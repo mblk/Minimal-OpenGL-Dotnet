@@ -9,7 +9,22 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     
     <!--<Platforms>x64</Platforms>-->
+
     
+    <PublishAot>true</PublishAot>
+    
+    <!--<SelfContained>true</SelfContained>-->
+    
+    <InvariantGlobalization>true</InvariantGlobalization>
+    
+    <StripSymbols>true</StripSymbols>
+
+    <OptimizationPreference>Speed</OptimizationPreference>
+
+    <!--<DebuggerSupport>false</DebuggerSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <StackTraceSupport>false</StackTraceSupport>-->
+
   </PropertyGroup>
 
 </Project>

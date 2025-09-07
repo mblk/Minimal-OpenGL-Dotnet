@@ -18,6 +18,7 @@ internal unsafe class GL
 
     public const uint GL_VERTEX_SHADER = 0x8B31;
     public const uint GL_FRAGMENT_SHADER = 0x8B30;
+
     public const uint GL_COMPILE_STATUS = 0x8B81;
     public const uint GL_LINK_STATUS = 0x8B82;
     public const uint GL_INFO_LOG_LENGTH = 0x8B84;
