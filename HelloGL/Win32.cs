@@ -1,5 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 
+namespace HelloGL;
+
 internal static class Win32
 {
     internal static class User32
@@ -11,9 +13,9 @@ internal static class Win32
         public const uint WS_VISIBLE = 0x10000000;
 
         // Window messages
-        public const int WM_DESTROY = 0x0002;
-        public const int WM_SIZE = 0x0005;
-        public const int WM_QUIT = 0x0012;
+        public const uint WM_DESTROY = 0x0002;
+        public const uint WM_SIZE = 0x0005;
+        public const uint WM_QUIT = 0x0012;
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         public struct WNDCLASSEXW
@@ -124,7 +126,7 @@ internal static class Win32
 
     private static IntPtr WndProc(IntPtr hWnd, uint msg, UIntPtr wParam, IntPtr lParam)
     {
-        switch ((int)msg)
+        switch (msg)
         {
             case User32.WM_DESTROY:
                 User32.PostQuitMessage(0);
@@ -159,8 +161,20 @@ internal static class Win32
         if (User32.RegisterClassExW(ref cls) == 0)
             throw new Exception("RegisterClassExW failed.");
 
-        IntPtr hwnd = User32.CreateWindowExW(0, cls.lpszClassName, title, User32.WS_OVERLAPPEDWINDOW | User32.WS_VISIBLE,
-            User32.CW_USEDEFAULT, User32.CW_USEDEFAULT, width, height, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        IntPtr hwnd = User32.CreateWindowExW(
+            0,
+            cls.lpszClassName,
+            title,
+            User32.WS_OVERLAPPEDWINDOW | User32.WS_VISIBLE,
+            User32.CW_USEDEFAULT,
+            User32.CW_USEDEFAULT,
+            width,
+            height,
+            IntPtr.Zero,
+            IntPtr.Zero,
+            IntPtr.Zero,
+            IntPtr.Zero);
+
         if (hwnd == IntPtr.Zero)
             throw new Exception("CreateWindowExW failed.");
 
@@ -188,9 +202,9 @@ internal static class Win32
 
     public static void GetClientSize(IntPtr hwnd, out int w, out int h)
     {
-        User32.RECT r;
+        if (!User32.GetClientRect(hwnd, out var r))
+            throw new Exception("GetClientRect failed.");
 
-        User32.GetClientRect(hwnd, out r);
         w = r.right - r.left;
         h = r.bottom - r.top;
     }

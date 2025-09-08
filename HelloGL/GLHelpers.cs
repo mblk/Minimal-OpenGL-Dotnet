@@ -1,16 +1,18 @@
 ﻿using System.Text;
 
+namespace HelloGL;
+
 internal static class GLHelpers
 {
     public static unsafe uint CompileProgram(GL gl, string vsSource, string fsSource)
     {
         uint vs = gl.CreateShader(GL.GL_VERTEX_SHADER);
-        GLSetSource(gl, vs, vsSource);
+        SetSource(gl, vs, vsSource);
         gl.CompileShader(vs);
         CheckShader(gl, vs, "Vertex");
 
         uint fs = gl.CreateShader(GL.GL_FRAGMENT_SHADER);
-        GLSetSource(gl, fs, fsSource);
+        SetSource(gl, fs, fsSource);
         gl.CompileShader(fs);
         CheckShader(gl, fs, "Fragment");
 
@@ -25,7 +27,7 @@ internal static class GLHelpers
         return p;
     }
 
-    private static unsafe void GLSetSource(GL gl, uint shader, string src)
+    private static unsafe void SetSource(GL gl, uint shader, string src)
     {
         byte[] bytes = Encoding.UTF8.GetBytes(src);
         fixed (byte* p = bytes)
