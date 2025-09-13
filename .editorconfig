@@ -2,3 +2,6 @@
 
 # IDE0290: Use primary constructor
 csharp_style_prefer_primary_constructors = false
+
+dotnet_diagnostic.CA1401.severity = none
+dotnet_diagnostic.SYSLIB1054.severity = none

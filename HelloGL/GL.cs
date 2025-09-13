@@ -1,10 +1,35 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace HelloGL;
 
 public unsafe class GL
 {
+    // Errors
+    public const uint GL_NO_ERROR = 0;       // kein Fehler
+    public const uint GL_INVALID_ENUM = 0x0500;  // ungültiger Wert für ein Enum
+    public const uint GL_INVALID_VALUE = 0x0501;  // ungültiger Wert (z. B. negative Größe)
+    public const uint GL_INVALID_OPERATION = 0x0502;  // Operation in diesem Zustand nicht erlaubt
+    public const uint GL_STACK_OVERFLOW = 0x0503;  // alter GL, Stack zu tief
+    public const uint GL_STACK_UNDERFLOW = 0x0504;  // alter GL, Stack zu flach
+    public const uint GL_OUT_OF_MEMORY = 0x0505;  // Speicher erschöpft
+    public const uint GL_INVALID_FRAMEBUFFER_OPERATION = 0x0506; // FBO unvollständig
+
+    private static string ErrorToString(uint err) => err switch
+    {
+        GL_NO_ERROR => "GL_NO_ERROR",
+        GL_INVALID_ENUM => "GL_INVALID_ENUM",
+        GL_INVALID_VALUE => "GL_INVALID_VALUE",
+        GL_INVALID_OPERATION => "GL_INVALID_OPERATION",
+        GL_STACK_OVERFLOW => "GL_STACK_OVERFLOW",
+        GL_STACK_UNDERFLOW => "GL_STACK_UNDERFLOW",
+        GL_OUT_OF_MEMORY => "GL_OUT_OF_MEMORY",
+        GL_INVALID_FRAMEBUFFER_OPERATION => "GL_INVALID_FRAMEBUFFER_OPERATION",
+        _ => $"Unknown error 0x{err:X4}"
+    };
+
+
     // Constants
     public const uint GL_COLOR_BUFFER_BIT = 0x00004000;
 
@@ -65,26 +90,19 @@ public unsafe class GL
 
     // Function pointers
     public delegate* unmanaged[Cdecl]<uint> GetError;
-
     public delegate* unmanaged[Cdecl]<float, float, float, float, void> ClearColor;
     public delegate* unmanaged[Cdecl]<uint, void> Clear;
     public delegate* unmanaged[Cdecl]<int, int, int, int, void> Viewport;
-
     public delegate* unmanaged[Cdecl]<uint, IntPtr> GetString;
-    public delegate* unmanaged[Cdecl]<uint /*pname*/, int* /*data*/, void> GetIntegerv;
-    
-    public delegate* unmanaged[Cdecl]<uint /*face*/, uint /*mode*/, void> PolygonMode;
-    public delegate* unmanaged[Cdecl]<uint /*cap*/, void> Enable;
-    public delegate* unmanaged[Cdecl]<uint /*cap*/, void> Disable;
-
+    public delegate* unmanaged[Cdecl]<uint, int*, void> GetIntegerv;
+    public delegate* unmanaged[Cdecl]<uint, uint, void> PolygonMode;
+    public delegate* unmanaged[Cdecl]<uint, void> Enable;
+    public delegate* unmanaged[Cdecl]<uint, void> Disable;
     public delegate* unmanaged[Cdecl]<void> Finish;
     public delegate* unmanaged[Cdecl]<void> Flush;
-
-    public delegate* unmanaged[Cdecl]<uint /*buf*/, void> DrawBuffer;
-    public delegate* unmanaged[Cdecl]<uint /*src*/, void> ReadBuffer;
-
-    public unsafe delegate* unmanaged[Cdecl]<int, int, int, int, uint, uint, IntPtr, void> ReadPixels;
-
+    public delegate* unmanaged[Cdecl]<uint, void> DrawBuffer;
+    public delegate* unmanaged[Cdecl]<uint, void> ReadBuffer;
+    public delegate* unmanaged[Cdecl]<int, int, int, int, uint, uint, IntPtr, void> ReadPixels;
     public delegate* unmanaged[Cdecl]<uint, uint> CreateShader;
     public delegate* unmanaged[Cdecl]<uint, int, byte**, int*, void> ShaderSource;
     public delegate* unmanaged[Cdecl]<uint, void> CompileShader;
@@ -96,26 +114,14 @@ public unsafe class GL
     public delegate* unmanaged[Cdecl]<uint, uint, int*, void> GetProgramiv;
     public delegate* unmanaged[Cdecl]<uint, int, IntPtr, IntPtr, void> GetProgramInfoLog;
     public delegate* unmanaged[Cdecl]<uint, void> UseProgram;
-    public delegate* unmanaged[Cdecl]<int, uint*, void> GenVertexArrays;
+    private delegate* unmanaged[Cdecl]<int, uint*, void> _genVertexArrays;
     public delegate* unmanaged[Cdecl]<uint, void> BindVertexArray;
     public delegate* unmanaged[Cdecl]<int, uint*, void> GenBuffers;
     public delegate* unmanaged[Cdecl]<uint, uint, void> BindBuffer;
     public delegate* unmanaged[Cdecl]<uint, nint, IntPtr, uint, void> BufferData;
-    //public delegate* unmanaged[Cdecl]<uint, int, uint, uint, int, IntPtr, void> VertexAttribPointer;
-
-    public delegate* unmanaged[Cdecl]
-        <uint  /*index*/,
-          int   /*size*/,
-          uint  /*type*/,
-          byte  /*normalized (GLboolean: 0/1)*/,
-          int   /*stride*/,
-          IntPtr /*pointer*/,
-          void> VertexAttribPointer;
-
-    public delegate* unmanaged[Cdecl]<uint /*program*/, IntPtr /*name*/, int> GetAttribLocation;
-
-    public delegate* unmanaged[Cdecl]<uint /*index*/, uint /*pname*/, int* /*params*/, void> GetVertexAttribiv;
-
+    public delegate* unmanaged[Cdecl]<uint, int, uint, byte, int, IntPtr, void> VertexAttribPointer;
+    public delegate* unmanaged[Cdecl]<uint, IntPtr, int> GetAttribLocation;
+    public delegate* unmanaged[Cdecl]<uint, uint, int*, void> GetVertexAttribiv;
     public delegate* unmanaged[Cdecl]<uint, void> EnableVertexAttribArray;
     public delegate* unmanaged[Cdecl]<uint, void> DisableVertexAttribArray;
     public delegate* unmanaged[Cdecl]<uint, int, uint, void> DrawArrays;
@@ -124,57 +130,81 @@ public unsafe class GL
     public delegate* unmanaged[Cdecl]<int, uint*, void> DeleteBuffers;
     public delegate* unmanaged[Cdecl]<int, uint*, void> DeleteVertexArrays;
 
+
+    
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void GenVertexArrays(int n, uint* arrays)
+    {
+        _genVertexArrays(n, arrays);
+        CheckError();
+    }
+
+    [Conditional("DEBUG")]
+    private void CheckError([CallerMemberName] string? caller = "")
+    {
+        var hadError = false;
+        uint error;
+        while ((error = GetError()) != GL_NO_ERROR)
+        {
+            hadError = true;
+            var name = ErrorToString(error);
+            Console.WriteLine($"GL error: {caller} -> {name}");
+        }
+
+        if (hadError)
+        {
+            if (Debugger.IsAttached)
+            {
+                Debugger.Break();
+            }
+
+            throw new Exception("GL error(s) detected.");
+        }
+    }
+
+
+
+
+
     public void Load(Func<string, IntPtr> getProc)
     {
         GetError = (delegate* unmanaged[Cdecl]<uint>)Load(getProc, "glGetError");
-
         ClearColor = (delegate* unmanaged[Cdecl]<float, float, float, float, void>)Load(getProc, "glClearColor");
         Clear = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glClear");
         Viewport = (delegate* unmanaged[Cdecl]<int, int, int, int, void>)Load(getProc, "glViewport");
-
         GetString = (delegate* unmanaged[Cdecl]<uint, IntPtr>)Load(getProc, "glGetString");
         GetIntegerv = (delegate* unmanaged[Cdecl]<uint, int*, void>)Load(getProc, "glGetIntegerv");
-
         PolygonMode = (delegate* unmanaged[Cdecl]<uint, uint, void>)Load(getProc, "glPolygonMode");
         Enable = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glEnable");
         Disable = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glDisable");
-
         Finish = (delegate* unmanaged[Cdecl]<void>)Load(getProc, "glFinish");
         Flush = (delegate* unmanaged[Cdecl]<void>)Load(getProc, "glFlush");
-
         DrawBuffer = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glDrawBuffer");
         ReadBuffer = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glReadBuffer");
-
         ReadPixels = (delegate* unmanaged[Cdecl]<int, int, int, int, uint, uint, IntPtr, void>)Load(getProc, "glReadPixels");
-
         CreateShader = (delegate* unmanaged[Cdecl]<uint, uint>)Load(getProc, "glCreateShader");
         ShaderSource = (delegate* unmanaged[Cdecl]<uint, int, byte**, int*, void>)Load(getProc, "glShaderSource");
         CompileShader = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glCompileShader");
         GetShaderiv = (delegate* unmanaged[Cdecl]<uint, uint, int*, void>)Load(getProc, "glGetShaderiv");
         GetShaderInfoLog = (delegate* unmanaged[Cdecl]<uint, int, IntPtr, IntPtr, void>)Load(getProc, "glGetShaderInfoLog");
-
         CreateProgram = (delegate* unmanaged[Cdecl]<uint>)Load(getProc, "glCreateProgram");
         AttachShader = (delegate* unmanaged[Cdecl]<uint, uint, void>)Load(getProc, "glAttachShader");
         LinkProgram = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glLinkProgram");
         GetProgramiv = (delegate* unmanaged[Cdecl]<uint, uint, int*, void>)Load(getProc, "glGetProgramiv");
         GetProgramInfoLog = (delegate* unmanaged[Cdecl]<uint, int, IntPtr, IntPtr, void>)Load(getProc, "glGetProgramInfoLog");
         UseProgram = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glUseProgram");
-
-        GenVertexArrays = (delegate* unmanaged[Cdecl]<int, uint*, void>)Load(getProc, "glGenVertexArrays");
+        _genVertexArrays = (delegate* unmanaged[Cdecl]<int, uint*, void>)Load(getProc, "glGenVertexArrays");
         BindVertexArray = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glBindVertexArray");
         GenBuffers = (delegate* unmanaged[Cdecl]<int, uint*, void>)Load(getProc, "glGenBuffers");
         BindBuffer = (delegate* unmanaged[Cdecl]<uint, uint, void>)Load(getProc, "glBindBuffer");
         BufferData = (delegate* unmanaged[Cdecl]<uint, nint, IntPtr, uint, void>)Load(getProc, "glBufferData");
-
         VertexAttribPointer = (delegate* unmanaged[Cdecl]<uint, int, uint, byte, int, IntPtr, void>)Load(getProc, "glVertexAttribPointer");
-
         GetAttribLocation = (delegate* unmanaged[Cdecl]<uint, IntPtr, int>)Load(getProc, "glGetAttribLocation");
         GetVertexAttribiv = (delegate* unmanaged[Cdecl]<uint, uint, int*, void>)Load(getProc, "glGetVertexAttribiv");
-
         EnableVertexAttribArray = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glEnableVertexAttribArray");
         DisableVertexAttribArray = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glDisableVertexAttribArray");
         DrawArrays = (delegate* unmanaged[Cdecl]<uint, int, uint, void>)Load(getProc, "glDrawArrays");
-
         DeleteShader = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glDeleteShader");
         DeleteProgram = (delegate* unmanaged[Cdecl]<uint, void>)Load(getProc, "glDeleteProgram");
         DeleteBuffers = (delegate* unmanaged[Cdecl]<int, uint*, void>)Load(getProc, "glDeleteBuffers");
@@ -202,91 +232,34 @@ public unsafe class GL
         return ptr == IntPtr.Zero ? string.Empty : Marshal.PtrToStringAnsi(ptr)!;
     }
 
-    public unsafe int GetAttribLocationUtf8(uint prog, string name)
-    {
-        var bytes = System.Text.Encoding.ASCII.GetBytes(name + "\0");
-        fixed (byte* p = bytes)
-        {
-            return GetAttribLocation(prog, (IntPtr)p);
-        }
-    }
+    //public unsafe int GetAttribLocationUtf8(uint prog, string name)
+    //{
+    //    var bytes = System.Text.Encoding.ASCII.GetBytes(name + "\0");
+    //    fixed (byte* p = bytes)
+    //    {
+    //        return GetAttribLocation(prog, (IntPtr)p);
+    //    }
+    //}
 
-    public void CheckError(string? msg = null, [CallerFilePath] string? file = "", [CallerLineNumber] int line = 0)
-    {
-        var err = GetError();
-        if (err != 0)
-        {
-            var s = $"[{file}:{line}] GL Error: 0x{err:X}";
-            if (msg != null)
-                s += $" ({msg})";
-            throw new Exception(s);
-        }
-    }
-}
+//    public void CheckError(string? msg = null, [CallerFilePath] string? file = "", [CallerLineNumber] int line = 0)
+//    {
+//        var err = GetError();
+//        if (err != 0)
+//        {
+//            var s = $"[{file}:{line}] GL Error: 0x{err:X}";
+//            if (msg != null)
+//                s += $" ({msg})";
 
-public static class Gpu
-{
-    private static IntPtr _libGL = IntPtr.Zero;
+//            Console.WriteLine(s);
 
-    public static void InitPlatformGL()
-    {
-        if (OperatingSystem.IsLinux())
-        {
-            NativeLibrary.TryLoad("libGL.so.1", out _libGL);
-        }
-        else if (OperatingSystem.IsWindows())
-        {
-            // opengl32.dll for fallback (core functions <= 1.1)
-            NativeLibrary.TryLoad("opengl32.dll", out _libGL);
-        }
-        else
-        {
-            throw new PlatformNotSupportedException("Only Windows and Linux are supported.");
-        }
-    }
+//#if DEBUG
+//            if (Debugger.IsAttached)
+//            {
+//                Debugger.Break();
+//            }
+//#endif
 
-    public static IntPtr GetExport(string name)
-    {
-        if (_libGL != IntPtr.Zero && NativeLibrary.TryGetExport(_libGL, name, out var p))
-            return p;
-        return IntPtr.Zero;
-    }
-}
-
-public static class Wgl
-{
-    [DllImport("opengl32.dll", ExactSpelling = true)]
-    public static extern IntPtr wglCreateContext(IntPtr hdc);
-
-    [DllImport("opengl32.dll", ExactSpelling = true)]
-    public static extern bool wglDeleteContext(IntPtr hglrc);
-
-    [DllImport("opengl32.dll", ExactSpelling = true)]
-    public static extern bool wglMakeCurrent(IntPtr hdc, IntPtr hglrc);
-
-    [DllImport("opengl32.dll", CharSet = CharSet.Ansi)]
-    private static extern IntPtr wglGetProcAddress(string name);
-
-    public static IntPtr GetProcAddress(string name)
-    {
-        var p = wglGetProcAddress(name);
-
-        // Filter out bogus values sometimes returned
-        if (p == IntPtr.Zero || p == new IntPtr(1) || p == new IntPtr(2) || p == new IntPtr(3) || p == new IntPtr(-1))
-            return IntPtr.Zero;
-
-        return p;
-    }
-
-    public static IntPtr GetProcAddressWithFallback(string name)
-    {
-        var p = GetProcAddress(name);
-        if (p != IntPtr.Zero)
-            return p;
-
-        // core symbols may be in opengl32.dll
-        p = Gpu.GetExport(name);
-
-        return p;
-    }
+//            throw new Exception(s);
+//        }
+//    }
 }
