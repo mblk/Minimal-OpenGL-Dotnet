@@ -56,7 +56,7 @@ internal unsafe static class GLX
 
 
 
-    public static void Load()
+    public static void LoadExtensions()
     {
         glXSwapIntervalEXT = (delegate* unmanaged<nint, nint, int, void>)GetProcAddressWithFallback("glXSwapIntervalEXT");
         if (glXSwapIntervalEXT == null)

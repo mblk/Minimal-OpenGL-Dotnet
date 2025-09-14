@@ -1,4 +1,6 @@
-﻿namespace HelloGL.Platforms;
+﻿using HelloGL.OpenGL;
+
+namespace HelloGL.Platforms;
 
 public static class PlatformFactory
 {
@@ -26,11 +28,8 @@ public static class PlatformFactory
     }
 }
 
-
 public record PlatformOptions();
 public record WindowOptions(int Width, int Height, string Title, int SwapInterval = 1); // 0=off, 1=vsync
-
-
 
 public interface IPlatform : IDisposable
 {
@@ -39,13 +38,9 @@ public interface IPlatform : IDisposable
 
 public interface IWindow : IDisposable
 {
-    GL Gl { get; }
-
+    GL GL { get; }
     (int, int) Size { get; }
 
-
-
     bool ProcessEvents();
-
     void SwapBuffers();
 }

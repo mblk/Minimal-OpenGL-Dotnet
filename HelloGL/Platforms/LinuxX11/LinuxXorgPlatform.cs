@@ -1,4 +1,5 @@
-﻿using HelloGL.Platforms.LinuxX11.Native;
+﻿using HelloGL.OpenGL;
+using HelloGL.Platforms.LinuxX11.Native;
 using System.Runtime.InteropServices;
 
 namespace HelloGL.Platforms.LinuxX11;
@@ -112,10 +113,8 @@ public unsafe class LinuxXorgPlatform : IPlatform
 
 
         // 6) GL-Funktionen laden
-        var gl = new GL();
-        gl.Load(GLX.GetProcAddressWithFallback);
-
-        GLX.Load();
+        var gl = new GL(GLX.GetProcAddressWithFallback);
+        GLX.LoadExtensions();
 
         // 0 = VSync aus
         // 1 = VSync an
@@ -138,7 +137,7 @@ public unsafe class LinuxXorgPlatform : IPlatform
         private readonly nint _glxWindow;
         private readonly nint _openGlContext;
 
-        public GL Gl { get; }
+        public GL GL { get; }
 
         public (int, int) Size => throw new NotImplementedException();
 
@@ -148,7 +147,7 @@ public unsafe class LinuxXorgPlatform : IPlatform
             _x11Window = x11Window;
             _glxWindow = glxWindow;
             _openGlContext = openGlContext;
-            Gl = gl;
+            GL = gl;
         }
 
         public bool ProcessEvents()
@@ -175,7 +174,7 @@ public unsafe class LinuxXorgPlatform : IPlatform
                         //GLX.GetWindowSize(_display, _window, out int w, out int h);
                         //gl.Viewport(0, 0, Math.Max(1, w), Math.Max(1, h));
 
-                        Gl.Viewport(0, 0, Math.Max(1, (int)gw), Math.Max(1, (int)gh));
+                        GL.Viewport(0, 0, Math.Max(1, (int)gw), Math.Max(1, (int)gh));
                         break;
                 }
             }

@@ -1,4 +1,5 @@
-﻿using HelloGL.Platforms.Windows.Native;
+﻿using HelloGL.OpenGL;
+using HelloGL.Platforms.Windows.Native;
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;
 
@@ -44,8 +45,7 @@ internal unsafe class WindowsPlatform : IPlatform
         //
 
         WGL.LoadExtensions();
-        var gl = new GL();
-        gl.Load(WGL.GetProcAddress);
+        var gl = new GL(WGL.GetProcAddress);
 
         //
         // 
@@ -227,7 +227,7 @@ internal unsafe class WindowsPlatform : IPlatform
         private bool _resizePending;
         private int _clientW, _clientH;
 
-        public GL Gl { get; }
+        public GL GL { get; }
 
         public (int, int) Size { get; private set; }
 
@@ -236,7 +236,7 @@ internal unsafe class WindowsPlatform : IPlatform
             _windowHandle = windowHandle;
             _deviceContext = deviceContext;
             _openGlContext = openGlContext;
-            Gl = gl;
+            GL = gl;
         }
 
         public void Dispose()
@@ -320,7 +320,7 @@ internal unsafe class WindowsPlatform : IPlatform
             {
                 Console.WriteLine($"Resize: {w} {h}");
                 Size = (w, h);
-                Gl.Viewport(0, 0, Math.Max(1, w), Math.Max(1, h));
+                GL.Viewport(0, 0, Math.Max(1, w), Math.Max(1, h));
             }
 
             return running;
