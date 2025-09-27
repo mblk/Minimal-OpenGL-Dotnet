@@ -2,78 +2,91 @@
 
 namespace HelloGL.Platforms.Windows.Native;
 
-internal unsafe static class WGL
+internal unsafe class WGL
 {
-    [DllImport("opengl32.dll", ExactSpelling = true)]
-    public static extern nint wglCreateContext(nint hdc);
+    [DllImport("opengl32.dll", ExactSpelling = true)] public static extern nint wglCreateContext(nint hdc);
+    [DllImport("opengl32.dll", ExactSpelling = true)] public static extern bool wglDeleteContext(nint hglrc);
+    [DllImport("opengl32.dll", ExactSpelling = true)] public static extern bool wglMakeCurrent(nint hdc, nint hglrc);
+    [DllImport("opengl32.dll", ExactSpelling = true, CharSet = CharSet.Ansi)] public static extern nint wglGetProcAddress(string name);
 
-    [DllImport("opengl32.dll", ExactSpelling = true)]
-    public static extern bool wglDeleteContext(nint hglrc);
+    // wglCreateContextAttribsARB attributes
+    public const int CONTEXT_MAJOR_VERSION_ARB = 0x2091;
+    public const int CONTEXT_MINOR_VERSION_ARB = 0x2092;
+    public const int CONTEXT_FLAGS_ARB = 0x2094;
+    public const int CONTEXT_PROFILE_MASK_ARB = 0x9126;
 
-    [DllImport("opengl32.dll", ExactSpelling = true)]
-    public static extern bool wglMakeCurrent(nint hdc, nint hglrc);
+    // WGL_CONTEXT_FLAGS_ARB bits
+    public const int CONTEXT_DEBUG_BIT_ARB = 0x0001;
+    public const int CONTEXT_FORWARD_COMPATIBLE_BIT_ARB = 0x0002;
 
-    [DllImport("opengl32.dll", CharSet = CharSet.Ansi)]
-    private static extern nint wglGetProcAddress(string name);
+    // WGL_CONTEXT_PROFILE_MASK_ARB bits
+    public const int CONTEXT_CORE_PROFILE_BIT_ARB = 0x00000001;
 
-    private static IntPtr _libGL = IntPtr.Zero;
+    private nint _libGL = nint.Zero;
 
-    private static delegate* unmanaged[Stdcall]<int, bool> wglSwapIntervalEXT;
-    private static delegate* unmanaged[Stdcall]<int> wglGetSwapIntervalEXT;
+    private delegate* unmanaged[Stdcall]<int, bool> _wglSwapIntervalEXT;
+    private delegate* unmanaged[Stdcall]<int> _wglGetSwapIntervalEXT;
 
-    public static void LoadExtensions()
+    public WGL()
     {
-        wglSwapIntervalEXT = (delegate* unmanaged[Stdcall]<int, bool>)GetProcAddress("wglSwapIntervalEXT");
-        wglGetSwapIntervalEXT = (delegate* unmanaged[Stdcall]<int>)GetProcAddress("wglGetSwapIntervalEXT");
+        LoadExtensions();
     }
 
-    public static void SetVSync(int interval)
+    private void LoadExtensions()
     {
-        if (wglSwapIntervalEXT is null) return;
-
-        wglSwapIntervalEXT(interval); // 1=an, 0=aus
+        _wglSwapIntervalEXT = (delegate* unmanaged[Stdcall]<int, bool>)GetProcAddress("wglSwapIntervalEXT");
+        _wglGetSwapIntervalEXT = (delegate* unmanaged[Stdcall]<int>)GetProcAddress("wglGetSwapIntervalEXT");
     }
 
-    public static int GetVSync()
+    public void SetSwapInterval(int interval) // 0=vsync off, 1=vsync on
     {
-        if (wglGetSwapIntervalEXT is null) return 0;
+        if (_wglSwapIntervalEXT is null)
+            return;
 
-        return wglGetSwapIntervalEXT();
+        _wglSwapIntervalEXT(interval);
     }
 
-    public static nint GetProcAddress(string name)
+    public int GetSwapInterval()
+    {
+        if (_wglGetSwapIntervalEXT is null)
+            return 0;
+
+        return _wglGetSwapIntervalEXT();
+    }
+
+    public nint GetProcAddress(string name)
     {
         nint p;
 
         // newer functions must be queried via wglGetProcAddress
         p = GetProcAddressFromWgl(name);
-        if (p != IntPtr.Zero)
+        if (p != nint.Zero)
             return p;
 
         // older/core symbols may be in opengl32.dll
         p = GetProcAddressFromNativeLib(name);
-        if (p != IntPtr.Zero)
+        if (p != nint.Zero)
             return p;
 
         Console.WriteLine($"GetProcAddress: {name} not found.");
-        return IntPtr.Zero;
+        return nint.Zero;
     }
 
-    private static nint GetProcAddressFromWgl(string name)
+    private nint GetProcAddressFromWgl(string name)
     {
         var p = wglGetProcAddress(name);
 
         // Filter out bogus values sometimes returned
-        if (p == IntPtr.Zero || p == new nint(1) || p == new nint(2) || p == new nint(3) || p == new nint(-1))
-            return IntPtr.Zero;
+        if (p == nint.Zero || p == new nint(1) || p == new nint(2) || p == new nint(3) || p == new nint(-1))
+            return nint.Zero;
 
         Console.WriteLine($"GetProcAddress (WGL): {name} = 0x{p:X}");
         return p;
     }
 
-    private static IntPtr GetProcAddressFromNativeLib(string name)
+    private IntPtr GetProcAddressFromNativeLib(string name)
     {
-        if (_libGL == IntPtr.Zero)
+        if (_libGL == nint.Zero)
         {
             // opengl32.dll for fallback (core functions <= 1.1)
             if (!NativeLibrary.TryLoad("opengl32.dll", out _libGL))
@@ -86,6 +99,6 @@ internal unsafe static class WGL
             return p;
         }
 
-        return IntPtr.Zero;
+        return nint.Zero;
     }
 }

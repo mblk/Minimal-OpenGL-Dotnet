@@ -11,7 +11,7 @@ public static class Program
         // -----
         var specFile = new FileInfo(@"C:\workspace\repos\OpenGL-Registry\xml\gl.xml");
         // -----
-        var enumName = "ErrorCode";
+        var enumName = "DebugSeverity";
         // -----
 
         var doc = XDocument.Load(specFile.FullName);

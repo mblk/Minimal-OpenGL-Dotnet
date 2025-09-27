@@ -29,7 +29,7 @@ public static class PlatformFactory
 }
 
 public record PlatformOptions();
-public record WindowOptions(int Width, int Height, string Title, int SwapInterval = 1); // 0=off, 1=vsync
+public record WindowOptions(int Width, int Height, string Title, int SwapInterval = 1); // 0=vsync off, 1=vsync on
 
 public interface IPlatform : IDisposable
 {

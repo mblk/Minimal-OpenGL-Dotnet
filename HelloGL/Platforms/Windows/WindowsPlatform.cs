@@ -44,14 +44,14 @@ internal unsafe class WindowsPlatform : IPlatform
         // load OpenGL entry points
         //
 
-        WGL.LoadExtensions();
-        var gl = new GL(WGL.GetProcAddress);
+        var wgl = new WGL();
+        var gl = new GL(wgl.GetProcAddress);
 
         //
-        // 
+        // initial setup
         //
 
-        SetSwapInterval(options.SwapInterval);
+        SetSwapInterval(wgl, options.SwapInterval);
 
         User32.GetClientSize(windowHandle, out var cw, out var ch);
         Console.WriteLine($"Setting initial viewport: {cw} {ch}");
@@ -64,13 +64,17 @@ internal unsafe class WindowsPlatform : IPlatform
 
     private void RegisterWindowClass()
     {
+        nint hInstance = Kernel32.GetModuleHandleW(IntPtr.Zero);
+
         // register window class
         var windowClass = new User32.WNDCLASSEXW
         {
             cbSize = (uint)Marshal.SizeOf<User32.WNDCLASSEXW>(),
+            style = User32.CS_OWNDC, // own DC for each window
             lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_globalWindowProcedure),
             lpszClassName = _windowClassName,
-            hInstance = IntPtr.Zero,
+            hInstance = hInstance,
+            hCursor = User32.LoadCursorW(IntPtr.Zero, (nint)User32.IDC_ARROW),
         };
 
         if (User32.RegisterClassExW(ref windowClass) == 0)
@@ -100,6 +104,8 @@ internal unsafe class WindowsPlatform : IPlatform
 
     private static nint CreateWindow(int width, int height, string title)
     {
+        nint hInstance = Kernel32.GetModuleHandleW(IntPtr.Zero);
+
         var windowHandle = User32.CreateWindowExW(
             0,
             _windowClassName,
@@ -111,7 +117,7 @@ internal unsafe class WindowsPlatform : IPlatform
             height,
             IntPtr.Zero,
             IntPtr.Zero,
-            IntPtr.Zero,
+            hInstance,
             IntPtr.Zero);
 
         if (windowHandle == IntPtr.Zero)
@@ -155,7 +161,7 @@ internal unsafe class WindowsPlatform : IPlatform
 
     private static nint CreateOpenGlContext(nint deviceContext)
     {
-        // Create dummy context to load wglCreateContextAttribsARB
+        // Create dummy 1.x context to load wglCreateContextAttribsARB
         var dummyOpenGlContext = WGL.wglCreateContext(deviceContext);
         if (dummyOpenGlContext == IntPtr.Zero)
             throw new Exception("Failed to create dummy WGL context.");
@@ -163,47 +169,44 @@ internal unsafe class WindowsPlatform : IPlatform
         if (!WGL.wglMakeCurrent(deviceContext, dummyOpenGlContext))
             throw new Exception("Failed to make current dummy WGL context.");
 
-        //var pCreateCtxAttribs = Wgl.GetProcAddress("wglCreateContextAttribsARB");
-        var pCreateCtxAttribs = WGL.GetProcAddress("wglCreateContextAttribsARB");
+        // Load wglCreateContextAttribsARB
+        var pCreateCtxAttribs = WGL.wglGetProcAddress("wglCreateContextAttribsARB");
         if (pCreateCtxAttribs == IntPtr.Zero)
             throw new Exception("wglCreateContextAttribsARB not available.");
 
-        var wglCreateContextAttribsARB = (delegate* unmanaged<nint, nint, int*, nint>)pCreateCtxAttribs;
+        var wglCreateContextAttribsARB = (delegate* unmanaged[Stdcall]<nint, nint, int*, nint>)pCreateCtxAttribs;
 
-        // Create real core 3.3 context
-        var attribs = new int[]
+        // Create real core context
+        int* attribs = stackalloc int[]
         {
-            0x2091, 3,              // WGL_CONTEXT_MAJOR_VERSION_ARB
-            0x2092, 3,              // WGL_CONTEXT_MINOR_VERSION_ARB
-            0x2094, 0x00000001,     // WGL_CONTEXT_FLAGS_ARB = FORWARD_COMPATIBLE_BIT
-            0x9126, 0x00000001,     // WGL_CONTEXT_PROFILE_MASK_ARB = CORE_PROFILE
-            0
+            WGL.CONTEXT_MAJOR_VERSION_ARB, GL.MajorVersion,
+            WGL.CONTEXT_MINOR_VERSION_ARB, GL.MinorVersion,
+#if DEBUG
+            WGL.CONTEXT_FLAGS_ARB, WGL.CONTEXT_FORWARD_COMPATIBLE_BIT_ARB | WGL.CONTEXT_DEBUG_BIT_ARB,
+#else
+            WGL.CONTEXT_FLAGS_ARB, WGL.CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
+#endif
+            WGL.CONTEXT_PROFILE_MASK_ARB, WGL.CONTEXT_CORE_PROFILE_BIT_ARB,
+            0 // Terminator
         };
-        nint openGlContext;
-        unsafe
-        {
-            fixed (int* p = attribs)
-            {
-                openGlContext = wglCreateContextAttribsARB(deviceContext, IntPtr.Zero, p);
-            }
-        }
+        nint openGlContext = wglCreateContextAttribsARB(deviceContext, IntPtr.Zero, attribs);
         if (openGlContext == IntPtr.Zero)
-            throw new Exception("Failed to create OpenGL 3.3 Core context.");
+            throw new Exception("Failed to create OpenGL Core context.");
 
         // Delete dummy and switch to real context
         WGL.wglMakeCurrent(IntPtr.Zero, IntPtr.Zero);
         WGL.wglDeleteContext(dummyOpenGlContext);
         if (!WGL.wglMakeCurrent(deviceContext, openGlContext))
-            throw new Exception("Failed to activate OpenGL 3.3 Core context.");
+            throw new Exception("Failed to activate OpenGL Core context.");
 
         return openGlContext;
     }
 
-    private static void SetSwapInterval(int interval)
+    private static void SetSwapInterval(WGL wgl, int interval)
     {
-        WGL.SetVSync(interval);
+        wgl.SetSwapInterval(interval);
 
-        var current = WGL.GetVSync();
+        var current = wgl.GetSwapInterval();
         if (current != interval)
         {
             Console.WriteLine($"Warning: Could not set swap interval to {interval}, current is {current}");
@@ -223,7 +226,6 @@ internal unsafe class WindowsPlatform : IPlatform
         private readonly nint _deviceContext;
         private readonly nint _openGlContext;
 
-        //private readonly Lock _resizeLock = new();
         private bool _resizePending;
         private int _clientW, _clientH;
 
@@ -271,7 +273,6 @@ internal unsafe class WindowsPlatform : IPlatform
                     var w = lParam.ToInt32() & 0xFFFF;
                     var h = lParam.ToInt32() >> 16 & 0xFFFF;
 
-                    //lock (_resizeLock)
                     {
                         _clientW = w;
                         _clientH = h;
@@ -287,15 +288,12 @@ internal unsafe class WindowsPlatform : IPlatform
 
         private bool TryDequeueResize(out int w, out int h)
         {
-            //lock (_resizeLock)
+            if (_resizePending)
             {
-                if (_resizePending)
-                {
-                    _resizePending = false;
-                    w = _clientW;
-                    h = _clientH;
-                    return true;
-                }
+                _resizePending = false;
+                w = _clientW;
+                h = _clientH;
+                return true;
             }
 
             w = h = 0;

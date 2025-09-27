@@ -8,6 +8,11 @@ namespace HelloGL.OpenGL;
 
 public sealed unsafe partial class GL
 {
+    // TODO: check Cdecl vs Stdcall
+
+    public const int MajorVersion = 4;
+    public const int MinorVersion = 3;
+
     private readonly Func<string, nint> _loader;
 
     public GL(Func<string, nint> loader)
@@ -17,6 +22,7 @@ public sealed unsafe partial class GL
         LoadFunctions();
         VerifyLoaded();
         PrintInfos();
+        EnableDebugOutput();
     }
 
     private void LoadFunctions()
@@ -68,6 +74,9 @@ public sealed unsafe partial class GL
         _getProgramInfoLog = (delegate* unmanaged[Cdecl]<uint, int, int*, byte*, void>)Load("glGetProgramInfoLog");
         _useProgram = (delegate* unmanaged[Cdecl]<uint, void>)Load("glUseProgram");
         _getAttribLocation = (delegate* unmanaged[Cdecl]<uint, sbyte*, int>)Load("glGetAttribLocation");
+
+        _glDebugMessageCallback = (delegate* unmanaged[Cdecl]<nint, nint, void>)Load("glDebugMessageCallback");
+        _glDebugMessageControl = (delegate* unmanaged[Cdecl]<DebugSource, DebugType, DebugSeverity, int, uint*, byte, void>)Load("glDebugMessageControl");
     }
 
     private nint Load(string name)
@@ -113,6 +122,28 @@ public sealed unsafe partial class GL
                 throw new Exception($"Field {fieldInfo.Name} not initialized");
             }
         }
+    }
+
+    [Conditional("DEBUG")]
+    private void EnableDebugOutput()
+    {
+        Enable(EnableCap.DEBUG_OUTPUT);
+        Enable(EnableCap.DEBUG_OUTPUT_SYNCHRONOUS);
+
+        DebugMessageCallback(DebugCallback, nint.Zero);
+
+        // Enable all messages
+        DebugMessageControl(DebugSource.DONT_CARE, DebugType.DONT_CARE, DebugSeverity.DONT_CARE, 0, null, true);
+
+        // Disable notification severity messages
+        //DebugMessageControl(DebugSource.DONT_CARE, DebugType.DONT_CARE, DebugSeverity.NOTIFICATION, 0, null, false);
+    }
+
+    private void DebugCallback(DebugSource source, DebugType type, uint id, DebugSeverity severity, int length, sbyte* message, void* userParam)
+    {
+        string msg = Marshal.PtrToStringAnsi((nint)message, length) ?? string.Empty;
+
+        Console.WriteLine($"GL: {severity}|{source}|{type}: {msg}");
     }
 
     private void PrintInfos()
@@ -428,7 +459,7 @@ public sealed unsafe partial class GL
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void VertexAttribPointer(uint index, int size, VertexAttribPointerType type, bool normalized, int stride, nint pointer)
     {
-        _vertexAttribPointer(index, size, type, (byte)(normalized ? 1 : 0), stride, pointer);
+        _vertexAttribPointer(index, size, type, BoolToByte(normalized), stride, pointer);
         CheckError();
     }
     private delegate* unmanaged[Cdecl]<uint, int, VertexAttribPointerType, byte, int, nint, void> _vertexAttribPointer;
@@ -797,6 +828,52 @@ public sealed unsafe partial class GL
 
         return GetAttribLocation(program, buffer);
     }
+
+    #endregion
+
+    #region Debug Output
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void DebugProc(DebugSource source, DebugType type, uint id, DebugSeverity severity, int length, sbyte* message, void* userParam);
+
+    /// <summary>
+    /// specify a callback to receive debugging messages from the GL
+    /// </summary>
+    /// <param name="callback"></param>
+    /// <param name="userParam"></param>
+    public void DebugMessageCallback(DebugProc callback, nint userParam)
+    {
+        nint addr = Marshal.GetFunctionPointerForDelegate(callback);
+
+        Console.WriteLine($"DebugMessageCallback registering: {addr}");
+
+        _glDebugMessageCallback(addr, userParam);
+        CheckError();
+    }
+    private unsafe delegate* unmanaged[Cdecl]<nint, nint, void> _glDebugMessageCallback;
+
+    /// <summary>
+    /// control the reporting of debug messages in a debug context
+    /// </summary>
+    /// <param name="source"></param>
+    /// <param name="type"></param>
+    /// <param name="severity"></param>
+    /// <param name="count"></param>
+    /// <param name="ids"></param>
+    /// <param name="enabled"></param>
+    public void DebugMessageControl(DebugSource source, DebugType type, DebugSeverity severity, int count, uint* ids, bool enabled)
+    {
+        _glDebugMessageControl(source, type, severity, count, ids, BoolToByte(enabled));
+        CheckError();
+    }
+    private unsafe delegate* unmanaged[Cdecl]<DebugSource, DebugType, DebugSeverity, int, uint*, byte, void> _glDebugMessageControl;
+
+    #endregion
+
+    #region Helpers
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte BoolToByte(bool v) => v ? (byte)1 : (byte)0;
 
     #endregion
 }

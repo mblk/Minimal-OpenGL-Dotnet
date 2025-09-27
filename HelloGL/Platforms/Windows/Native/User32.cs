@@ -17,6 +17,11 @@ internal static class User32
     public delegate nint WndProcDelegate(nint hWnd, uint msg, nuint wParam, nint lParam);
 
     public const int CW_USEDEFAULT = unchecked((int)0x80000000);
+    public const int CS_OWNDC = 0x0020;
+
+    // Cursor IDs
+    public const int IDC_ARROW = 32512;
+    public const int IDC_WAIT = 32514;
 
     // Window styles
     public const uint WS_OVERLAPPEDWINDOW = 0x00CF0000;
@@ -76,6 +81,9 @@ internal static class User32
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "CreateWindowExW")]
     public static extern nint CreateWindowExW(uint exStyle, string lpClassName, string lpWindowName, uint dwStyle,
         int x, int y, int nWidth, int nHeight, nint hWndParent, nint hMenu, nint hInstance, nint lpParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr LoadCursorW(IntPtr hInstance, IntPtr lpCursorName);
 
     [DllImport("user32.dll")] public static extern nint DefWindowProcW(nint hWnd, uint msg, nuint wParam, nint lParam);
     [DllImport("user32.dll")] public static extern bool DestroyWindow(nint hWnd);

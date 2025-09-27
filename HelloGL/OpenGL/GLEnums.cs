@@ -948,4 +948,38 @@ public unsafe partial class GL
         TRANSFORM_FEEDBACK_VARYINGS = 0x8C83,
         ACTIVE_ATOMIC_COUNTER_BUFFERS = 0x92D9,
     }
+
+    public enum DebugSource : uint
+    {
+        DONT_CARE = 0x1100,
+        API = 0x8246,
+        WINDOW_SYSTEM = 0x8247,
+        SHADER_COMPILER = 0x8248,
+        THIRD_PARTY = 0x8249,
+        APPLICATION = 0x824A,
+        OTHER = 0x824B,
+    }
+
+    public enum DebugType : uint
+    {
+        DONT_CARE = 0x1100,
+        ERROR = 0x824C,
+        DEPRECATED_BEHAVIOR = 0x824D,
+        UNDEFINED_BEHAVIOR = 0x824E,
+        PORTABILITY = 0x824F,
+        PERFORMANCE = 0x8250,
+        OTHER = 0x8251,
+        MARKER = 0x8268,
+        PUSH_GROUP = 0x8269,
+        POP_GROUP = 0x826A,
+    }
+
+    public enum DebugSeverity : uint
+    {
+        DONT_CARE = 0x1100,
+        NOTIFICATION = 0x826B,
+        HIGH = 0x9146,
+        MEDIUM = 0x9147,
+        LOW = 0x9148,
+    }
 }
