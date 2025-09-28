@@ -875,6 +875,21 @@ public unsafe partial class GL
         INT_2_10_10_10_REV = 0x8D9F,
     }
 
+    public enum VertexAttribIType : uint
+    {
+        BYTE = 0x1400,
+        UNSIGNED_BYTE = 0x1401,
+        SHORT = 0x1402,
+        UNSIGNED_SHORT = 0x1403,
+        INT = 0x1404,
+        UNSIGNED_INT = 0x1405,
+    }
+
+    public enum VertexAttribLType : uint
+    {
+        DOUBLE = 0x140A,
+    }
+
     public enum PrimitiveType : uint
     {
         POINTS = 0x0000,
@@ -981,5 +996,20 @@ public unsafe partial class GL
         HIGH = 0x9146,
         MEDIUM = 0x9147,
         LOW = 0x9148,
+    }
+
+    public enum ObjectIdentifier : uint
+    {
+        TEXTURE = 0x1702,
+        VERTEX_ARRAY = 0x8074,
+        BUFFER = 0x82E0,
+        SHADER = 0x82E1,
+        PROGRAM = 0x82E2,
+        QUERY = 0x82E3,
+        PROGRAM_PIPELINE = 0x82E4,
+        SAMPLER = 0x82E6,
+        FRAMEBUFFER = 0x8D40,
+        RENDERBUFFER = 0x8D41,
+        TRANSFORM_FEEDBACK = 0x8E22,
     }
 }

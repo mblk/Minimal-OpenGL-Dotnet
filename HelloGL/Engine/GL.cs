@@ -6,10 +6,13 @@ using System.Text;
 
 namespace HelloGL.Engine;
 
+// TODO: check Cdecl vs Stdcall, maybe not setting is explicitly is the best option
+
+// type mapping:
+// GLsizei: int
+
 public sealed unsafe partial class GL
 {
-    // TODO: check Cdecl vs Stdcall
-
     public const int MajorVersion = 4;
     public const int MinorVersion = 3;
 
@@ -54,8 +57,8 @@ public sealed unsafe partial class GL
         _enableVertexAttribArray = (delegate* unmanaged[Cdecl]<uint, void>)Load("glEnableVertexAttribArray");
         _disableVertexAttribArray = (delegate* unmanaged[Cdecl]<uint, void>)Load("glDisableVertexAttribArray");
         _vertexAttribPointer = (delegate* unmanaged[Cdecl]<uint, int, VertexAttribPointerType, byte, int, nint, void>)Load("glVertexAttribPointer");
-        _vertexAttribIPointer = (delegate* unmanaged[Cdecl]<uint, int, VertexAttribPointerType, int, nint, void>)Load("glVertexAttribIPointer");
-        _vertexAttribLPointer = (delegate* unmanaged[Cdecl]<uint, int, VertexAttribPointerType, int, nint, void>)Load("glVertexAttribLPointer");
+        _vertexAttribIPointer = (delegate* unmanaged[Cdecl]<uint, int, VertexAttribIType, int, nint, void>)Load("glVertexAttribIPointer");
+        _vertexAttribLPointer = (delegate* unmanaged[Cdecl]<uint, int, VertexAttribLType, int, nint, void>)Load("glVertexAttribLPointer");
         
         _drawArrays = (delegate* unmanaged[Cdecl]<PrimitiveType, int, uint, void>)Load("glDrawArrays");
 
@@ -77,6 +80,8 @@ public sealed unsafe partial class GL
 
         _glDebugMessageCallback = (delegate* unmanaged[Cdecl]<nint, nint, void>)Load("glDebugMessageCallback");
         _glDebugMessageControl = (delegate* unmanaged[Cdecl]<DebugSource, DebugType, DebugSeverity, int, uint*, byte, void>)Load("glDebugMessageControl");
+        _glObjectLabel = (delegate* unmanaged<ObjectIdentifier, uint, int, sbyte*, void>)Load("glObjectLabel");
+        _glObjectPtrLabel = (delegate* unmanaged<void*, int, sbyte*, void>)Load("glObjectPtrLabel");
     }
 
     private nint Load(string name)
@@ -474,12 +479,12 @@ public sealed unsafe partial class GL
     /// <param name="stride"></param>
     /// <param name="pointer"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void VertexAttribPointer(uint index, int size, VertexAttribPointerType type, int stride, nint pointer)
+    public void VertexAttribIPointer(uint index, int size, VertexAttribIType type, int stride, nint pointer)
     {
         _vertexAttribIPointer(index, size, type, stride, pointer);
         CheckError();
     }
-    private delegate* unmanaged[Cdecl]<uint, int, VertexAttribPointerType, int, nint, void> _vertexAttribIPointer;
+    private delegate* unmanaged[Cdecl]<uint, int, VertexAttribIType, int, nint, void> _vertexAttribIPointer;
 
     /// <summary>
     /// define an array of generic vertex attribute data
@@ -491,12 +496,12 @@ public sealed unsafe partial class GL
     /// <param name="stride"></param>
     /// <param name="pointer"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void VertexAttribLPointer(uint index, int size, VertexAttribPointerType type, int stride, nint pointer)
+    public void VertexAttribLPointer(uint index, int size, VertexAttribLType type, int stride, nint pointer)
     {
         _vertexAttribLPointer(index, size, type, stride, pointer);
         CheckError();
     }
-    private delegate* unmanaged[Cdecl]<uint, int, VertexAttribPointerType, int, nint, void> _vertexAttribLPointer;
+    private delegate* unmanaged[Cdecl]<uint, int, VertexAttribLType, int, nint, void> _vertexAttribLPointer;
 
     /// <summary>
     /// Enable a generic vertex attribute array
@@ -831,7 +836,7 @@ public sealed unsafe partial class GL
 
     #endregion
 
-    #region Debug Output
+    #region Debugging
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void DebugProc(DebugSource source, DebugType type, uint id, DebugSeverity severity, int length, sbyte* message, void* userParam);
@@ -844,8 +849,6 @@ public sealed unsafe partial class GL
     public void DebugMessageCallback(DebugProc callback, nint userParam)
     {
         nint addr = Marshal.GetFunctionPointerForDelegate(callback);
-
-        Console.WriteLine($"DebugMessageCallback registering: {addr}");
 
         _glDebugMessageCallback(addr, userParam);
         CheckError();
@@ -867,6 +870,39 @@ public sealed unsafe partial class GL
         CheckError();
     }
     private unsafe delegate* unmanaged[Cdecl]<DebugSource, DebugType, DebugSeverity, int, uint*, byte, void> _glDebugMessageControl;
+
+    /// <summary>
+    /// label a named object identified within a namespace
+    /// </summary>
+    /// <param name="identifier"></param>
+    /// <param name="name"></param>
+    /// <param name="label"></param>
+    public void ObjectLabel(ObjectIdentifier identifier, uint name, string label)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(label);
+        fixed (byte* p = bytes)
+        {
+            _glObjectLabel(identifier, name, bytes.Length, (sbyte*)p);
+        }
+        CheckError();
+    }
+    private unsafe delegate* unmanaged<ObjectIdentifier, uint, int, sbyte*, void> _glObjectLabel;
+
+    /// <summary>
+    /// label a sync object identified by a pointer
+    /// </summary>
+    /// <param name="pointer"></param>
+    /// <param name="label"></param>
+    public void ObjectPtrLabel(void* pointer, string label)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(label);
+        fixed (byte* p = bytes)
+        {
+            _glObjectPtrLabel(pointer, bytes.Length, (sbyte*)p);
+        }
+        CheckError();
+    }
+    private unsafe delegate* unmanaged<void*, int, sbyte*, void> _glObjectPtrLabel;
 
     #endregion
 

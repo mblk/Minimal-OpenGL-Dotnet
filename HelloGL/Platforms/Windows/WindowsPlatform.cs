@@ -12,7 +12,7 @@ internal unsafe class WindowsPlatform : IPlatform
     private readonly FrozenDictionary<uint, string> _messagesToPrint = new Dictionary<uint, string>
     {
         [User32.WM_DESTROY] = "WM_DESTROY",
-        [User32.WM_SIZE] = "WM_SIZE",
+        //[User32.WM_SIZE] = "WM_SIZE",
         [User32.WM_QUIT] = "WM_QUIT",
     }.ToFrozenDictionary();
 
