@@ -1,4 +1,4 @@
-﻿using HelloGL.OpenGL;
+﻿using HelloGL.Engine;
 
 namespace HelloGL.Platforms;
 

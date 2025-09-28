@@ -1,4 +1,4 @@
-﻿namespace HelloGL.OpenGL;
+﻿namespace HelloGL.Engine;
 
 public unsafe partial class GL
 {

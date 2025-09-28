@@ -1,4 +1,4 @@
-﻿using HelloGL.OpenGL;
+﻿using HelloGL.Engine;
 using HelloGL.Platforms.LinuxX11.Native;
 using System.Runtime.InteropServices;
 

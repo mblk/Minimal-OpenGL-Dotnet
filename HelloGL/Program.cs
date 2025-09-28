@@ -1,4 +1,4 @@
-﻿using HelloGL.OpenGL;
+﻿using HelloGL.Engine;
 using HelloGL.Platforms;
 using HelloGL.Utils;
 using System.Diagnostics;
@@ -22,6 +22,16 @@ internal unsafe static class Program
 
         var gl = window.GL;
 
+        // init assetmanager
+
+        var assetBaseDir = AssetManager.FindBaseDirectory();
+
+        var useAssetHotReloading = true;
+
+        AssetManager assetManager = useAssetHotReloading
+            ? new AssetManagerWithHotReload(assetBaseDir, gl)
+            : new AssetManager(assetBaseDir, gl);
+
         // init content
 
         uint vao = 0, vbo = 0;
@@ -42,20 +52,7 @@ internal unsafe static class Program
             gl.VertexAttribPointer(0, 2, GL.VertexAttribPointerType.FLOAT, false, 2 * sizeof(float), 0);
         }
 
-        uint prog = 0;
-        {
-            string vs = "#version 330 core\n"
-                      + "layout(location=0) in vec2 aPos;\n"
-                      + "void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }\n";
-
-            string fs = "#version 330 core\n"
-                      + "out vec4 FragColor;\n"
-                      + "void main(){ FragColor = vec4(0.95, 0.4, 0.2, 1.0); }\n";
-
-            prog = gl.CompileProgram(vs, fs);
-
-            gl.UseProgram(prog);
-        }
+        var shader = assetManager.LoadShader("triangle");
 
         // main loop
 
@@ -64,9 +61,16 @@ internal unsafe static class Program
 
         while (window.ProcessEvents())
         {
+            //xxx
+            (assetManager as AssetManagerWithHotReload)?.ProcessChanges();
+            //xxx
+
             gl.ClearColor(0.07f, 0.08f, 0.12f, 1f);
             gl.Clear(GL.ClearBufferMask.COLOR_BUFFER_BIT);
+
+            shader.Use();
             gl.DrawArrays(GL.PrimitiveType.TRIANGLES, 0, 3);
+            shader.Unuse();
 
             window.SwapBuffers();
 
@@ -82,7 +86,6 @@ internal unsafe static class Program
 
         // cleanup
 
-        gl.DeleteProgram(prog);
         gl.DeleteBuffers(1, &vbo);
         gl.DeleteVertexArrays(1, &vao);
     }

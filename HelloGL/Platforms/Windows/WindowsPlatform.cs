@@ -1,4 +1,4 @@
-﻿using HelloGL.OpenGL;
+﻿using HelloGL.Engine;
 using HelloGL.Platforms.Windows.Native;
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;

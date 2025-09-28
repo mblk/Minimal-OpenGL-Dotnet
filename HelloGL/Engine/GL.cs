@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace HelloGL.OpenGL;
+namespace HelloGL.Engine;
 
 public sealed unsafe partial class GL
 {
