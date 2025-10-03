@@ -141,6 +141,8 @@ public unsafe class LinuxXorgPlatform : IPlatform
 
         public (int, int) Size => throw new NotImplementedException();
 
+        public IInput Input => throw new NotImplementedException();
+
         public Window(nint display, nint x11Window, nint glxWindow, nint openGlContext, GL gl)
         {
             _display = display;

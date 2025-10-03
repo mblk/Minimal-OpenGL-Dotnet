@@ -86,26 +86,46 @@ internal unsafe static class Program
         var frameCount = 0;
 
         var startTime = DateTime.Now;
+        var lastTime = DateTime.Now;
+
+        var playerPos = new Vector2(0, 0);
 
         while (window.ProcessEvents())
         {
-            float t = (float)(DateTime.Now - startTime).TotalSeconds;
+            var now = DateTime.Now;
+            float t = (float)(now - startTime).TotalSeconds;
+            float dt = (float)(now - lastTime).TotalSeconds;
+            lastTime = now;
 
             //xxx
             (assetManager as AssetManagerWithHotReload)?.ProcessChanges();
             //xxx
 
+
+            var kb = window.Input.Keyboard;
+
+            if (kb.WasPressed(Key.Space))
+            {
+                Console.WriteLine("jump");
+            }
+
+            if (kb.WasPressed(Key.Escape)) break;
+
+            if (kb.Get(Key.A)) playerPos.X -= 0.1f * dt;
+            if (kb.Get(Key.D)) playerPos.X += 0.1f * dt;
+            if (kb.Get(Key.W)) playerPos.Y += 0.1f * dt;
+            if (kb.Get(Key.S)) playerPos.Y -= 0.1f * dt;
+
+
+
             gl.ClearColor(0.07f, 0.08f, 0.12f, 1f);
             gl.Clear(GL.ClearBufferMask.COLOR_BUFFER_BIT);
-
-
-
 
             ReadOnlySpan<MyVertex1> verts2 =
             [
                 new MyVertex1()
                 {
-                    Position = new Vector2(-0.6f, 0.5f),
+                    Position = new Vector2(-0.6f, 0.5f) + playerPos,
                     Color = new Vector3(1.0f, 0.0f, 0.0f),
                 },
                 new MyVertex1()
@@ -121,7 +141,6 @@ internal unsafe static class Program
             ];
 
             vertexBuffer2.SetData(verts2, GL.BufferUsage.STREAM_DRAW);
-
 
             vertexArray1.Bind();
             shader.Use();

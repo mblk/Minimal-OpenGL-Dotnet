@@ -848,12 +848,14 @@ public sealed unsafe partial class GL
     /// <param name="userParam"></param>
     public void DebugMessageCallback(DebugProc callback, nint userParam)
     {
+        _debugProcs.Add(callback); // Prevent GC
         nint addr = Marshal.GetFunctionPointerForDelegate(callback);
 
         _glDebugMessageCallback(addr, userParam);
         CheckError();
     }
     private unsafe delegate* unmanaged[Cdecl]<nint, nint, void> _glDebugMessageCallback;
+    private readonly List<DebugProc> _debugProcs = [];
 
     /// <summary>
     /// control the reporting of debug messages in a debug context
