@@ -18,9 +18,6 @@ public abstract class Asset
 
 public class AssetManager : IDisposable
 {
-    //private readonly DirectoryInfo _baseDir;
-    //private readonly GL _gl;
-
     private readonly IAssetReader _reader;
     private readonly ShaderLoader _shaderLoader;
 
@@ -44,10 +41,11 @@ public class AssetManager : IDisposable
         throw new Exception($"Could not find asset base directory. Started search at: {startDir.FullName}");
     }
 
+    public GL GL { get; }
+
     public AssetManager(DirectoryInfo baseDir, GL gl)
     {
-        //_baseDir = baseDir;
-        //_gl = gl;
+        GL = gl;
 
         _reader = new FileSystemAssetReader(baseDir);
         _shaderLoader = new ShaderLoader(_reader, gl);

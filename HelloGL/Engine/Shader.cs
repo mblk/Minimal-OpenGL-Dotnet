@@ -1,4 +1,6 @@
-﻿namespace HelloGL.Engine;
+﻿using System.Numerics;
+
+namespace HelloGL.Engine;
 
 public class ShaderLoader : AssetLoader<Shader>
 {
@@ -99,6 +101,55 @@ public sealed class Shader : Asset, IDisposable
     {
         _gl.UseProgram(0);
     }
+
+    public void SetUniform(string name, int value)
+    {
+        int location = _gl.GetUniformLocation(_program, name);
+        if (location != -1)
+        {
+            _gl.Uniform(location, value);
+        }
+    }
+
+    public void SetUniform(string name, float value)
+    {
+        int location = _gl.GetUniformLocation(_program, name);
+        if (location != -1)
+        {
+            _gl.Uniform(location, value);
+        }
+    }
+
+    public void SetUniform(string name, Vector2 value)
+    {
+        int location = _gl.GetUniformLocation(_program, name);
+        if (location != -1)
+        {
+            _gl.Uniform(location, value);
+        }
+    }
+
+    public void SetUniform(string name, Vector3 value)
+    {
+        int location = _gl.GetUniformLocation(_program, name);
+        if (location != -1)
+        {
+            _gl.Uniform(location, value);
+        }
+    }
+
+    public void SetUniform(string name, Matrix4x4 value, bool transpose = false)
+    {
+        int location = _gl.GetUniformLocation(_program, name);
+        if (location != -1)
+        {
+            _gl.Uniform(location, value, transpose);
+        }
+    }
+
+
+
+
 
     private uint CompileProgram(string vsSource, string fsSource)
     {

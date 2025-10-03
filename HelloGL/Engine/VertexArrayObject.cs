@@ -97,6 +97,11 @@ public unsafe class VertexArrayObject<[DynamicallyAccessedMembers(DynamicallyAcc
         _gl.BindVertexArray(0);
     }
 
+    public void Draw(GL.PrimitiveType mode, int first, uint count)
+    {
+        _gl.DrawArrays(mode, first, count);
+    }
+
     private abstract record CommonAttribInfo(int Components);
     private record AttribInfo(int Components, GL.VertexAttribPointerType Type, bool Normalized) : CommonAttribInfo(Components);
     private record IAttribInfo(int Components, GL.VertexAttribIType Type) : CommonAttribInfo(Components);

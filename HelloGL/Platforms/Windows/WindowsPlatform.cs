@@ -58,22 +58,16 @@ internal unsafe class WindowsPlatform : IPlatform
         nint openGlContext = CreateOpenGlContext(deviceContext);
         RegisterRawInput(windowHandle);
 
-        //
         // load OpenGL entry points
-        //
 
         var wgl = new WGL();
         var gl = new GL(wgl.GetProcAddress);
 
-        //
         // initial setup
-        //
 
         SetSwapInterval(wgl, options.SwapInterval);
 
-        User32.GetClientSize(windowHandle, out var cw, out var ch);
-        Console.WriteLine($"Setting initial viewport: {cw} {ch}");
-        gl.Viewport(0, 0, cw, ch);
+        // done
 
         var window = new Window(windowHandle, deviceContext, openGlContext, gl);
         _windows.Add(windowHandle, window);
@@ -280,12 +274,6 @@ internal unsafe class WindowsPlatform : IPlatform
 
         public Keyboard()
         {
-            for(int i= 0; i < _currStates.Length; i++)
-            {
-                _currStates[i] = false;
-                _prevStates[i] = false;
-            }
-
             Activate();
         }
 
@@ -352,7 +340,11 @@ internal unsafe class WindowsPlatform : IPlatform
 
         public void Activate()
         {
-            // ...
+            for (int i = 0; i < _currStates.Length; i++)
+            {
+                _currStates[i] = false; // TODO: maybe query actual keyboard state?
+                _prevStates[i] = false;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -530,6 +522,12 @@ internal unsafe class WindowsPlatform : IPlatform
                 Keyboard = _keyboard,
                 Mouse = _mouse,
             };
+
+            User32.GetClientSize(windowHandle, out var cw, out var ch);
+            Console.WriteLine($"Setting initial viewport: {cw} {ch}");
+            gl.Viewport(0, 0, cw, ch);
+
+            Size = (cw, ch);
         }
 
         public void Dispose()

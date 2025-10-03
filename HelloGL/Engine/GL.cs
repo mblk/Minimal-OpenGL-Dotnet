@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -6,7 +7,7 @@ using System.Text;
 
 namespace HelloGL.Engine;
 
-// TODO: check Cdecl vs Stdcall, maybe not setting is explicitly is the best option
+// TODO: check Cdecl vs Stdcall, maybe not setting it explicitly is the best option
 
 // type mapping:
 // GLsizei: int
@@ -77,6 +78,40 @@ public sealed unsafe partial class GL
         _getProgramInfoLog = (delegate* unmanaged[Cdecl]<uint, int, int*, byte*, void>)Load("glGetProgramInfoLog");
         _useProgram = (delegate* unmanaged[Cdecl]<uint, void>)Load("glUseProgram");
         _getAttribLocation = (delegate* unmanaged[Cdecl]<uint, sbyte*, int>)Load("glGetAttribLocation");
+        _getUniformLocation = (delegate* unmanaged[Cdecl]<uint, sbyte*, int>)Load("glGetUniformLocation");
+
+        _uniform1i = (delegate* unmanaged[Cdecl]<int, int, void>)Load("glUniform1i");
+        _uniform2i = (delegate* unmanaged[Cdecl]<int, int, int, void>)Load("glUniform2i");
+        _uniform3i = (delegate* unmanaged[Cdecl]<int, int, int, int, void>)Load("glUniform3i");
+        _uniform4i = (delegate* unmanaged[Cdecl]<int, int, int, int, int, void>)Load("glUniform4i");
+
+        _uniform1iv = (delegate* unmanaged[Cdecl]<int, int, int*, void>)Load("glUniform1iv");
+        _uniform2iv = (delegate* unmanaged[Cdecl]<int, int, int*, void>)Load("glUniform2iv");
+        _uniform3iv = (delegate* unmanaged[Cdecl]<int, int, int*, void>)Load("glUniform3iv");
+        _uniform4iv = (delegate* unmanaged[Cdecl]<int, int, int*, void>)Load("glUniform4iv");
+
+        _uniform1ui = (delegate* unmanaged[Cdecl]<int, uint, void>)Load("glUniform1ui");
+        _uniform2ui = (delegate* unmanaged[Cdecl]<int, uint, uint, void>)Load("glUniform2ui");
+        _uniform3ui = (delegate* unmanaged[Cdecl]<int, uint, uint, uint, void>)Load("glUniform3ui");
+        _uniform4ui = (delegate* unmanaged[Cdecl]<int, uint, uint, uint, uint, void>)Load("glUniform4ui");
+
+        _uniform1uiv = (delegate* unmanaged[Cdecl]<int, int, uint*, void>)Load("glUniform1uiv");
+        _uniform2uiv = (delegate* unmanaged[Cdecl]<int, int, uint*, void>)Load("glUniform2uiv");
+        _uniform3uiv = (delegate* unmanaged[Cdecl]<int, int, uint*, void>)Load("glUniform3uiv");
+        _uniform4uiv = (delegate* unmanaged[Cdecl]<int, int, uint*, void>)Load("glUniform4uiv");
+
+        _uniform1f = (delegate* unmanaged[Cdecl]<int, float, void>)Load("glUniform1f");
+        _uniform2f = (delegate* unmanaged[Cdecl]<int, float, float, void>)Load("glUniform2f");
+        _uniform3f = (delegate* unmanaged[Cdecl]<int, float, float, float, void>)Load("glUniform3f");
+        _uniform4f = (delegate* unmanaged[Cdecl]<int, float, float, float, float, void>)Load("glUniform4f");
+
+        _uniform1fv = (delegate* unmanaged[Cdecl]<int, int, float*, void>)Load("glUniform1fv");
+        _uniform2fv = (delegate* unmanaged[Cdecl]<int, int, float*, void>)Load("glUniform2fv");
+        _uniform3fv = (delegate* unmanaged[Cdecl]<int, int, float*, void>)Load("glUniform3fv");
+        _uniform4fv = (delegate* unmanaged[Cdecl]<int, int, float*, void>)Load("glUniform4fv");
+
+        _uniformMatrix4fv = (delegate* unmanaged[Cdecl]<int, int, byte, float*, void>)Load("glUniformMatrix4fv");
+        _uniformMatrix3x2fv = (delegate* unmanaged[Cdecl]<int, int, byte, float*, void>)Load("glUniformMatrix3x2fv");
 
         _glDebugMessageCallback = (delegate* unmanaged[Cdecl]<nint, nint, void>)Load("glDebugMessageCallback");
         _glDebugMessageControl = (delegate* unmanaged[Cdecl]<DebugSource, DebugType, DebugSeverity, int, uint*, byte, void>)Load("glDebugMessageControl");
@@ -804,6 +839,12 @@ public sealed unsafe partial class GL
         {
             int loc = _getAttribLocation(program, (sbyte*)p);
             CheckError();
+#if DEBUG
+            if (loc == -1)
+            {
+                Console.WriteLine($"Warning: attrib '{Encoding.UTF8.GetString(name).TrimEnd('\0')}' not found in program {program}");
+            }
+#endif
             return loc;
         }
     }
@@ -833,6 +874,157 @@ public sealed unsafe partial class GL
 
         return GetAttribLocation(program, buffer);
     }
+
+    /// <summary>
+    /// Returns the location of a uniform variable
+    /// </summary>
+    /// <param name="program"></param>
+    /// <param name="name"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
+    public int GetUniformLocation(uint program, scoped ReadOnlySpan<byte> name)
+    {
+#if DEBUG
+        if (name.Length < 1) throw new ArgumentException("Name must not be empty.", nameof(name));
+#endif
+
+        ReadOnlySpan<byte> terminatedName = name;
+
+        if (name[^1] != 0)
+        {
+            Span<byte> buffer = name.Length < 256
+                ? stackalloc byte[name.Length + 1]
+                : new byte[name.Length + 1];
+
+            name.CopyTo(buffer);
+            buffer[^1] = 0;
+
+            terminatedName = buffer;
+        }
+
+        fixed (byte* p = terminatedName)
+        {
+            int loc = _getUniformLocation(program, (sbyte*)p);
+            CheckError();
+#if DEBUG
+            if (loc == -1)
+            {
+                Console.WriteLine($"Warning: uniform '{Encoding.UTF8.GetString(name).TrimEnd('\0')}' not found in program {program}");
+            }
+#endif
+            return loc;
+        }
+    }
+    private unsafe delegate* unmanaged[Cdecl]<uint, sbyte*, int> _getUniformLocation;
+
+    /// <summary>
+    /// Returns the location of a uniform variable
+    /// </summary>
+    /// <param name="program"></param>
+    /// <param name="name"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentNullException"></exception>
+    public int GetUniformLocation(uint program, string name)
+    {
+#if DEBUG
+        if (String.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name must not be empty.", nameof(name));
+#endif
+
+        int len = Encoding.UTF8.GetByteCount(name);
+
+        Span<byte> buffer = len < 256
+            ? stackalloc byte[len + 1]
+            : new byte[len + 1];
+
+        Encoding.UTF8.GetBytes(name, buffer[..len]);
+        buffer[^1] = 0;
+
+        return GetUniformLocation(program, buffer);
+    }
+
+    public void Uniform(int location, int value)
+    {
+        _uniform1i(location, value);
+        CheckError();
+    }
+
+    public void Uniform(int location, float value)
+    {
+        _uniform1f(location, value);
+        CheckError();
+    }
+
+    public void Uniform(int location, Vector2 value)
+    {
+        _uniform2f(location, value.X, value.Y);
+        CheckError();
+    }
+
+    public void Uniform(int location, Vector3 value)
+    {
+        _uniform3f(location, value.X, value.Y, value.Z);
+        CheckError();
+    }
+
+    public void Uniform(int location, Vector4 value)
+    {
+        _uniform4f(location, value.X, value.Y, value.Z, value.W);
+        CheckError();
+    }
+
+    public void Uniform(int location, Matrix4x4 value, bool transpose = false)
+    {
+        float* p = (float*)&value;
+        _uniformMatrix4fv(location, 1, BoolToByte(transpose), p);
+        CheckError();
+    }
+
+    public void Uniform(int location, Matrix3x2 value, bool transpose = false)
+    {
+        float* p = (float*)&value;
+        _uniformMatrix3x2fv(location, 1, BoolToByte(transpose), p);
+        CheckError();
+    }
+
+    // ints
+    private unsafe delegate* unmanaged[Cdecl]<int, int, void> _uniform1i;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, int, void> _uniform2i;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, int, int, void> _uniform3i;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, int, int, int, void> _uniform4i;
+
+    // int arrays
+    private unsafe delegate* unmanaged[Cdecl]<int, int, int*, void> _uniform1iv;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, int*, void> _uniform2iv;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, int*, void> _uniform3iv;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, int*, void> _uniform4iv;
+
+    // uints
+    private unsafe delegate* unmanaged[Cdecl]<int, uint, void> _uniform1ui;
+    private unsafe delegate* unmanaged[Cdecl]<int, uint, uint, void> _uniform2ui;
+    private unsafe delegate* unmanaged[Cdecl]<int, uint, uint, uint, void> _uniform3ui;
+    private unsafe delegate* unmanaged[Cdecl]<int, uint, uint, uint, uint, void> _uniform4ui;
+
+    // uint arrays
+    private unsafe delegate* unmanaged[Cdecl]<int, int, uint*, void> _uniform1uiv;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, uint*, void> _uniform2uiv;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, uint*, void> _uniform3uiv;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, uint*, void> _uniform4uiv;
+
+    // floats
+    private unsafe delegate* unmanaged[Cdecl]<int, float, void> _uniform1f;
+    private unsafe delegate* unmanaged[Cdecl]<int, float, float, void> _uniform2f;
+    private unsafe delegate* unmanaged[Cdecl]<int, float, float, float, void> _uniform3f;
+    private unsafe delegate* unmanaged[Cdecl]<int, float, float, float, float, void> _uniform4f;
+
+    // float arrays
+    private unsafe delegate* unmanaged[Cdecl]<int, int, float*, void> _uniform1fv;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, float*, void> _uniform2fv;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, float*, void> _uniform3fv;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, float*, void> _uniform4fv;
+
+    // matrices
+    private unsafe delegate* unmanaged[Cdecl]<int, int, byte, float*, void> _uniformMatrix4fv;
+    private unsafe delegate* unmanaged[Cdecl]<int, int, byte, float*, void> _uniformMatrix3x2fv;
 
     #endregion
 
