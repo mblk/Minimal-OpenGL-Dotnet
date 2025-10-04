@@ -37,6 +37,24 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
         _vertexBuffer.Add(new Vertex() { Position = p3, Color = c3 });
     }
 
+    public void AddRectangle(Vector2 center, Vector2 size, Vector3 color)
+    {
+        Vector2 halfSize = size * 0.5f;
+
+        Vector2 bl = new(center.X - halfSize.X, center.Y - halfSize.Y);
+        Vector2 br = new(center.X + halfSize.X, center.Y - halfSize.Y);
+        Vector2 tr = new(center.X + halfSize.X, center.Y + halfSize.Y);
+        Vector2 tl = new(center.X - halfSize.X, center.Y + halfSize.Y);
+
+        _vertexBuffer.Add(new Vertex { Position = bl, Color = color });
+        _vertexBuffer.Add(new Vertex { Position = br, Color = color });
+        _vertexBuffer.Add(new Vertex { Position = tr, Color = color });
+
+        _vertexBuffer.Add(new Vertex { Position = bl, Color = color });
+        _vertexBuffer.Add(new Vertex { Position = tr, Color = color });
+        _vertexBuffer.Add(new Vertex { Position = tl, Color = color });
+    }
+
     public void Render(Matrix4x4 mvp)
     {
         if (_vertexBuffer.Count == 0) return;

@@ -176,7 +176,7 @@ public sealed unsafe partial class GL
         DebugMessageControl(DebugSource.DONT_CARE, DebugType.DONT_CARE, DebugSeverity.DONT_CARE, 0, null, true);
 
         // Disable notification severity messages
-        //DebugMessageControl(DebugSource.DONT_CARE, DebugType.DONT_CARE, DebugSeverity.NOTIFICATION, 0, null, false);
+        DebugMessageControl(DebugSource.DONT_CARE, DebugType.DONT_CARE, DebugSeverity.NOTIFICATION, 0, null, false);
     }
 
     private void DebugCallback(DebugSource source, DebugType type, uint id, DebugSeverity severity, int length, sbyte* message, void* userParam)

@@ -2,7 +2,7 @@
 using HelloGL.Platforms;
 using System.Numerics;
 
-namespace HelloGL;
+namespace HelloGL.Scenes.MyGame;
 
 internal class MyGameScene : Scene
 {
