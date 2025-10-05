@@ -265,11 +265,13 @@ internal class CatrisGame // Quick and dirty, should clean this up
         }
     }
 
-    public void MovePieceDown()
+    public bool MovePieceDown()
     {
         if (SimulateMove(0, 1))
         {
             CurrentPiece.Y++;
+
+            return false;
         }
         else
         {
@@ -281,17 +283,13 @@ internal class CatrisGame // Quick and dirty, should clean this up
                 Console.WriteLine("Game over");
                 Reset();
             }
+
+            return true;
         }
     }
 
     public void RotatePiece(bool cw)
     {
-        if (!SimulateMove(0, 0, cw ? 1 : -1))
-        {
-            Console.WriteLine($"Rotation blocked");
-            return;
-        }
-
         var oldRotation = CurrentPiece.Rotation;
         var newRotation = CurrentPiece.Rotation.Next(cw ? 1 : -1);
 
@@ -301,22 +299,30 @@ internal class CatrisGame // Quick and dirty, should clean this up
         var widthChange = newShape.GetLength(1) - oldShape.GetLength(1);
         var heightChange = newShape.GetLength(0) - oldShape.GetLength(0);
 
-        Console.WriteLine($"change w={widthChange} h={heightChange}");
-
         // rotate around center of mass
-        CurrentPiece.X -= widthChange / 2;
-        CurrentPiece.Y -= heightChange / 2;
+        var moveX = -(widthChange / 2);
+        var moveY = -(heightChange / 2);
 
-        CurrentPiece.Rotation = newRotation;
+        var newPosX = CurrentPiece.X + moveX;
+        var newPosY = CurrentPiece.Y + moveY;
 
         // check bounds
-        int shapeWidth = GetCurrentPieceRotatedShape().GetLength(1);
-        int shapeHeight = GetCurrentPieceRotatedShape().GetLength(0);
+        int newShapeHeight = newShape.GetLength(0);
+        int newShapeWidth = newShape.GetLength(1);
 
-        if (CurrentPiece.X < 0) CurrentPiece.X = 0;
-        if (CurrentPiece.X + shapeWidth >= Width) CurrentPiece.X = Width - shapeWidth;
-        if (CurrentPiece.Y < 0) CurrentPiece.Y = 0;
-        if (CurrentPiece.Y + shapeHeight >= Height) CurrentPiece.Y = Height - shapeHeight;
+        if (newPosX < 0) moveX += -newPosX;
+        if (newPosY < 0) moveY += -newPosY;
+        if (newPosX + newShapeWidth > Width) moveX -= newPosX + newShapeWidth - Width;
+        if (newPosY + newShapeHeight > Height) moveY -= newPosY + newShapeHeight - Height;
 
+        if (!SimulateMove(moveX, moveY, cw ? 1 : -1))
+        {
+            Console.WriteLine($"Rotation blocked");
+            return;
+        }
+
+        CurrentPiece.X += moveX;
+        CurrentPiece.Y += moveY;
+        CurrentPiece.Rotation = newRotation;
     }
 }

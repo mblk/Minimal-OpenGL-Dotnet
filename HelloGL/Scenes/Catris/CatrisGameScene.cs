@@ -11,6 +11,7 @@ internal class CatrisGameScene : Scene
     private readonly CatrisGame _game = new();
 
     private float _downTick = 0;
+    private bool _downButtonNeedsRelease = false;
     private float _leftTick = 0;
     private float _rightTick = 0;
 
@@ -49,7 +50,7 @@ internal class CatrisGameScene : Scene
         // left / right
         //
 
-        const float maxTickLeftRight = 0.2f;
+        const float maxTickLeftRight = 0.12f;
 
         if (kb.WasPressed(Key.A))
         {
@@ -97,14 +98,25 @@ internal class CatrisGameScene : Scene
 
         if (kb.Get(Key.S))
         {
-            maxDownTick = 0.04f;
+            if (!_downButtonNeedsRelease)
+            {
+                maxDownTick = 0.04f;
+            }
+        }
+        else
+        {
+            _downButtonNeedsRelease = false;
         }
 
         _downTick += dt;
         if (_downTick >= maxDownTick)
         {
             _downTick = 0.0f;
-            _game.MovePieceDown();
+            
+            if (_game.MovePieceDown())
+            {
+                _downButtonNeedsRelease = true;
+            }
         }
     }
 
