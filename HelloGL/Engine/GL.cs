@@ -117,6 +117,16 @@ public sealed unsafe partial class GL
         _glDebugMessageControl = (delegate* unmanaged[Cdecl]<DebugSource, DebugType, DebugSeverity, int, uint*, byte, void>)Load("glDebugMessageControl");
         _glObjectLabel = (delegate* unmanaged<ObjectIdentifier, uint, int, sbyte*, void>)Load("glObjectLabel");
         _glObjectPtrLabel = (delegate* unmanaged<void*, int, sbyte*, void>)Load("glObjectPtrLabel");
+
+        _glGenTextures = (delegate* unmanaged[Cdecl]<int, uint*, void>)Load("glGenTextures");
+        _glDeleteTextures = (delegate* unmanaged[Cdecl]<int, uint*, void>)Load("glDeleteTextures");
+        _glBindTexture = (delegate* unmanaged[Cdecl]<TextureTarget, uint, void>)Load("glBindTexture");
+        _glPixelStoreI = (delegate* unmanaged[Cdecl]<PixelStoreParameter, int, void>)Load("glPixelStorei");
+        _glTexParameterI = (delegate* unmanaged[Cdecl]<TextureTarget, TextureParameterName, int, void>)Load("glTexParameteri");
+        _glTexParameterF = (delegate* unmanaged[Cdecl]<TextureTarget, TextureParameterName, float, void>)Load("glTexParameterf");
+        _glTexImage2D = (delegate* unmanaged[Cdecl]<TextureTarget, int, InternalFormat, int, int, int, PixelFormat, PixelType, void*, void>)Load("glTexImage2D");
+        _glGenerateMipmap = (delegate* unmanaged[Cdecl]<TextureTarget, void>)Load("glGenerateMipmap");
+        _glActiveTexture = (delegate* unmanaged[Cdecl]<TextureUnit, void>)Load("glActiveTexture");
     }
 
     private nint Load(string name)
@@ -942,36 +952,42 @@ public sealed unsafe partial class GL
         return GetUniformLocation(program, buffer);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Uniform(int location, int value)
     {
         _uniform1i(location, value);
         CheckError();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Uniform(int location, float value)
     {
         _uniform1f(location, value);
         CheckError();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Uniform(int location, Vector2 value)
     {
         _uniform2f(location, value.X, value.Y);
         CheckError();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Uniform(int location, Vector3 value)
     {
         _uniform3f(location, value.X, value.Y, value.Z);
         CheckError();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Uniform(int location, Vector4 value)
     {
         _uniform4f(location, value.X, value.Y, value.Z, value.W);
         CheckError();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Uniform(int location, Matrix4x4 value, bool transpose = false)
     {
         float* p = (float*)&value;
@@ -979,6 +995,7 @@ public sealed unsafe partial class GL
         CheckError();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Uniform(int location, Matrix3x2 value, bool transpose = false)
     {
         float* p = (float*)&value;
@@ -1097,6 +1114,148 @@ public sealed unsafe partial class GL
         CheckError();
     }
     private unsafe delegate* unmanaged<void*, int, sbyte*, void> _glObjectPtrLabel;
+
+    #endregion
+
+    #region Textures
+
+    /// <summary>
+    /// generate texture names
+    /// </summary>
+    /// <param name="n"></param>
+    /// <param name="textures"></param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void GenTextures(int n, uint* textures)
+    {
+        _glGenTextures(n, textures);
+        CheckError();
+    }
+    private delegate* unmanaged[Cdecl]<int, uint*, void> _glGenTextures;
+
+    /// <summary>
+    /// delete named textures
+    /// </summary>
+    /// <param name="n"></param>
+    /// <param name="textures"></param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void DeleteTextures(int n, uint* textures)
+    {
+        _glDeleteTextures(n, textures);
+        CheckError();
+    }
+    private delegate* unmanaged[Cdecl]<int, uint*, void> _glDeleteTextures;
+
+    /// <summary>
+    /// bind a named texture to a texturing target
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="texture"></param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void BindTexture(TextureTarget target, uint texture)
+    {
+        _glBindTexture(target, texture);
+        CheckError();
+    }
+    private delegate* unmanaged[Cdecl]<TextureTarget, uint, void> _glBindTexture;
+
+    /// <summary>
+    /// set pixel storage modes
+    /// </summary>
+    /// <param name="parameter"></param>
+    /// <param name="value"></param>
+    public void PixelStoreI(PixelStoreParameter parameter, int value)
+    {
+        _glPixelStoreI(parameter, value);
+        CheckError();
+    }
+    private delegate* unmanaged[Cdecl]<PixelStoreParameter, int, void> _glPixelStoreI;
+
+    /// <summary>
+    /// set texture parameters
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="parameter"></param>
+    /// <param name="value"></param>
+    public void TexParameterI(TextureTarget target, TextureParameterName parameter, int value)
+    {
+        _glTexParameterI(target, parameter, value);
+        CheckError();
+    }
+    private delegate* unmanaged[Cdecl]<TextureTarget, TextureParameterName, int, void> _glTexParameterI;
+
+    /// <summary>
+    /// set texture parameters
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="parameter"></param>
+    /// <param name="value"></param>
+    public void TexParameterF(TextureTarget target, TextureParameterName parameter, float value)
+    {
+        _glTexParameterF(target, parameter, value);
+        CheckError();
+    }
+    private delegate* unmanaged[Cdecl]<TextureTarget, TextureParameterName, float, void> _glTexParameterF;
+
+    /// <summary>
+    /// specify a two-dimensional texture image
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="level"></param>
+    /// <param name="internalFormat"></param>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    /// <param name="border"></param>
+    /// <param name="format"></param>
+    /// <param name="type"></param>
+    /// <param name="data"></param>
+    public void TexImage2D(
+        TextureTarget target,
+        int level,
+        InternalFormat internalFormat,
+        int width,
+        int height,
+        int border,
+        PixelFormat format,
+        PixelType type,
+        void* data)
+    {
+        _glTexImage2D(target, level, internalFormat, width, height, border, format, type, data);
+        CheckError();
+    }
+    private delegate* unmanaged[Cdecl]<
+        TextureTarget,
+        int, // level
+        InternalFormat,
+        int, // width
+        int, // height
+        int, // border
+        PixelFormat,
+        PixelType,
+        void*, // data
+        void>
+        _glTexImage2D;
+
+    /// <summary>
+    /// generate mipmaps for a specified texture object
+    /// </summary>
+    /// <param name="target"></param>
+    public void GenerateMipmap(TextureTarget target)
+    {
+        _glGenerateMipmap(target);
+        CheckError();
+    }
+    private delegate* unmanaged[Cdecl]<TextureTarget, void> _glGenerateMipmap;
+
+    /// <summary>
+    /// select active texture unit
+    /// </summary>
+    /// <param name="texture"></param>
+    public void ActiveTexture(TextureUnit texture)
+    {
+        _glActiveTexture(texture);
+        CheckError();
+    }
+    private delegate* unmanaged[Cdecl]<TextureUnit, void> _glActiveTexture;
 
     #endregion
 

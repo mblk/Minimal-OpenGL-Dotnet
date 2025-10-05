@@ -1,6 +1,7 @@
 ﻿using HelloGL.Engine;
 using HelloGL.Platforms;
 using HelloGL.Scenes.Catris;
+using HelloGL.Scenes.MyGame;
 using HelloGL.Utils;
 using System.Diagnostics;
 
@@ -16,7 +17,8 @@ internal unsafe static class Program
         // init platform
 
         var platformOptions = new PlatformOptions();
-        var windowOptions = new WindowOptions(600, 1000, "Catris");
+        //var windowOptions = new WindowOptions(600, 1000, "Catris");
+        var windowOptions = new WindowOptions(1600, 1000, "Catris");
 
         using var platform = PlatformFactory.CreatePlatform(platformOptions);
         using var window = platform.CreateWindow(windowOptions);
@@ -35,8 +37,8 @@ internal unsafe static class Program
 
         // init content
 
-        //Scene currentScene = new MyGameScene(assetManager);
-        Scene currentScene = new CatrisGameScene(assetManager);
+        Scene currentScene = new MyGameScene(assetManager);
+        //Scene currentScene = new CatrisGameScene(assetManager);
 
         currentScene.Load();
 

@@ -20,8 +20,10 @@ public class AssetManager : IDisposable
 {
     private readonly IAssetReader _reader;
     private readonly ShaderLoader _shaderLoader;
+    private readonly TextureLoader _textureLoader;
 
     private readonly Dictionary<string, Shader> _shaders = [];
+    private readonly Dictionary<string, Texture> _textures = [];
 
     public static DirectoryInfo FindBaseDirectory()
     {
@@ -49,6 +51,7 @@ public class AssetManager : IDisposable
 
         _reader = new FileSystemAssetReader(baseDir);
         _shaderLoader = new ShaderLoader(_reader, gl);
+        _textureLoader = new TextureLoader(_reader, gl);
     }
 
     public Shader LoadShader(string name)
@@ -68,6 +71,23 @@ public class AssetManager : IDisposable
         return shader;
     }
 
+    public Texture LoadTexture(string name)
+    {
+        if (_textures.TryGetValue(name, out var cachedTexture))
+            return cachedTexture;
+
+        var loadedTexture = _textureLoader.Load(name);
+
+        var texture = loadedTexture.Asset;
+        var sourceFiles = loadedTexture.SourceFiles;
+
+        RegisterAssetDependencies(texture, sourceFiles);
+
+        _textures.Add(name, texture);
+
+        return texture;
+    }
+
     public bool ReloadAsset(Asset asset)
     {
         try
@@ -82,9 +102,17 @@ public class AssetManager : IDisposable
                     break;
                 }
 
+                case Texture texture:
+                {
+                    // ...
+                    break;
+                }
+
                 default:
+                {
                     Console.WriteLine($"Error: Unknown asset type to reload: {asset.GetType().Name}");
                     break;
+                }
             }
 
             return true;
@@ -103,6 +131,12 @@ public class AssetManager : IDisposable
             shader.Dispose();
         }
         _shaders.Clear();
+
+        foreach (var texture in _textures.Values)
+        {
+            texture.Dispose();
+        }
+        _textures.Clear();
     }
 
     protected virtual void RegisterAssetDependencies(Asset asset, IReadOnlySet<string> files)

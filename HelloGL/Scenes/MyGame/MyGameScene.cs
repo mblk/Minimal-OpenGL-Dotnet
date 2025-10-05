@@ -62,6 +62,12 @@ internal class MyGameScene : Scene
             _playerPos + new Vector2(150, 50), new Vector3(0.0f, 0.0f, 1.0f)
         );
 
+        //_renderer.AddRectangle(new Vector2(300, 300), new Vector2(300, 300), new Vector3(1, 1, 0));
+
+        _renderer.AddRectangleWithTexture(new Vector2(800, 500), new Vector2(800, 800), new Vector3(1, 1, 1), new Vector2(0, 0), new Vector2(1, 1));
+
+        //_renderer.AddRectangleWithTexture(new Vector2(1100, 300), new Vector2(300, 300), new Vector3(1, 1, 1), new Vector2(0, 0), new Vector2(1, 1));
+
         _renderer.Render(mvp);
     }
 }
