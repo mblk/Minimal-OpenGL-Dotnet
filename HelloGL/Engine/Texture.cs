@@ -17,7 +17,7 @@ public class TextureLoader : AssetLoader<Texture>
         byte[] data = Reader.ReadFileAsBytes(path);
 
         var imageLoader = new PngImageLoader();
-        var imageLoadResult = imageLoader.Load(data);
+        var imageLoadResult = imageLoader.Load(data, true);
 
         var texture = new Texture(GL, imageLoadResult.Width, imageLoadResult.Height, imageLoadResult.Data);
 
@@ -35,7 +35,6 @@ public class TextureLoader : AssetLoader<Texture>
 public unsafe class Texture : Asset, IDisposable
 {
     private readonly GL _gl;
-
     private readonly uint _id;
 
     public Texture(GL gl, int width, int height, ReadOnlySpan<byte> data)
@@ -58,8 +57,7 @@ public unsafe class Texture : Asset, IDisposable
             _gl.TexImage2D(GL.TextureTarget.TEXTURE_2D, 0, GL.InternalFormat.RGBA8, width, height, 0, GL.PixelFormat.RGBA, GL.PixelType.UNSIGNED_BYTE, pData);
         }
 
-        // generate mipmaps maybe
-        //_gl.GenerateMipmap(GL.TextureTarget.TEXTURE_2D);
+        _gl.GenerateMipmap(GL.TextureTarget.TEXTURE_2D);
 
         _gl.BindTexture(GL.TextureTarget.TEXTURE_2D, 0);
     }
@@ -87,7 +85,7 @@ public abstract class ImageLoader
 {
     public record ImageLoadResult(int Width, int Height, byte[] Data);
 
-    public abstract ImageLoadResult Load(ReadOnlySpan<byte> data);
+    public abstract ImageLoadResult Load(ReadOnlySpan<byte> data, bool flipY);
 }
 
 public class PngImageLoader : ImageLoader
@@ -98,8 +96,10 @@ public class PngImageLoader : ImageLoader
 
     private static readonly byte[] _signature = [ 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A ];
 
+    // Length + Type + CRC
     private static readonly int _minimumChunkSize = 12;
 
+    // IHDR + IDAT + IEND
     private static readonly int _minimumValidLength = _signature.Length + 3 * _minimumChunkSize;
 
     private readonly ref struct Chunk
@@ -133,20 +133,41 @@ public class PngImageLoader : ImageLoader
     {
     }
 
-    public override ImageLoadResult Load(ReadOnlySpan<byte> data)
+    public override ImageLoadResult Load(ReadOnlySpan<byte> data, bool flipY)
+    {
+        CheckSignature(data);
+        ProcessChunks(data, out Header header, out Span<byte> compressedData);
+
+        int width = (int)header.Width;
+        int height = (int)header.Height;
+
+        Span<byte> decompressedData = DecompressData(compressedData);
+        Span<byte> reconstructedData = ReconstructImage(decompressedData, width, height);
+
+        if (flipY)
+        {
+            FlipY(reconstructedData, width, height);
+        }
+
+        return new ImageLoadResult(width, height, reconstructedData.ToArray());
+    }
+
+    private static void CheckSignature(ReadOnlySpan<byte> data)
     {
         if (data.Length < _minimumValidLength)
             throw new Exception($"Data too short");
 
         if (!data[0.._signature.Length].SequenceEqual(_signature))
             throw new Exception($"Invalid signature");
+    }
 
+    private static void ProcessChunks(ReadOnlySpan<byte> data, out Header outHeader, out Span<byte> outCompressedImageData)
+    {
         ReadOnlySpan<byte> next = data[_signature.Length..];
 
         Header? header = null;
         bool foundEnd = false;
-
-        List<byte> encodedImageData = new List<byte>(data.Length);
+        List<byte> compressedImageData = new List<byte>(data.Length);
 
         while (next.Length >= _minimumChunkSize)
         {
@@ -156,7 +177,7 @@ public class PngImageLoader : ImageLoader
             {
                 case "IHDR":
                 {
-                    if (header is not null) throw new Exception($"Found multiple headers");
+                    if (header is not null) throw new Exception($"Found multiple IHDR chunks");
 
                     header = new Header()
                     {
@@ -173,13 +194,13 @@ public class PngImageLoader : ImageLoader
 
                 case "IDAT":
                 {
-                    encodedImageData.AddRange(chunk.Data);
+                    compressedImageData.AddRange(chunk.Data);
                     break;
                 }
 
                 case "IEND":
                 {
-                    if (foundEnd) throw new Exception($"Found multiple ends");
+                    if (foundEnd) throw new Exception($"Found multiple IEND chunks");
 
                     foundEnd = true;
                     break;
@@ -193,7 +214,8 @@ public class PngImageLoader : ImageLoader
             }
         }
 
-        if (header is null) throw new Exception($"Header not found");
+        if (header is null) throw new Exception($"Missing IHDR chunk");
+        if (!foundEnd) throw new Exception($"Missing IEND chunk");
 
         Console.WriteLine($"Header:");
         Console.WriteLine($"  Size:        {header.Width}x{header.Height}");
@@ -203,92 +225,16 @@ public class PngImageLoader : ImageLoader
         Console.WriteLine($"  Filter:      {header.Filter}");
         Console.WriteLine($"  Interlace:   {header.Interlace}");
 
+        Console.WriteLine($"Data: {compressedImageData.Count} bytes");
+
         if (header.BitDepth != 8) throw new Exception($"Unsupported bit depth {header.BitDepth}, must be 8");
         if (header.ColorType != 6) throw new Exception($"Unsupported color type {header.ColorType}, must be 6 (RGBA)");
         if (header.Compression != 0) throw new Exception($"Unsupported compression method {header.Compression}, must be 0");
         if (header.Filter != 0) throw new Exception($"Unsupported filter method {header.Filter}, must be 0");
         if (header.Interlace != 0) throw new Exception($"Unsupported interlace method {header.Interlace}, must be 0");
 
-        if (!foundEnd) throw new Exception($"Missing IEND chunk");
-
-        // -----------------------------------
-
-        byte[] decompressedData = DecompressData(CollectionsMarshal.AsSpan(encodedImageData));
-
-        Console.WriteLine($"Decompressed image data from {encodedImageData.Count} to {decompressedData.Length} bytes");
-
-        // -----------------------------------
-
-        Span<byte> finalData = new byte[header.Width * header.Height * 4];
-
-        ReconstructImage(decompressedData, finalData, (int)header.Width, (int)header.Height);
-
-        // -----------------------------------
-
-        return new ImageLoadResult((int)header.Width, (int)header.Height, finalData.ToArray());
-    }
-
-    private unsafe static byte[] DecompressData(ReadOnlySpan<byte> compressedData)
-    {
-        fixed (byte* pData = compressedData)
-        {
-            using var inputStream = new UnmanagedMemoryStream(pData, compressedData.Length);
-
-            using var zlibStream = new ZLibStream(inputStream, CompressionMode.Decompress, false);
-
-            using var outputStream = new MemoryStream();
-            zlibStream.CopyTo(outputStream);
-
-            return outputStream.ToArray();
-        }
-    }
-
-    private static void ReconstructImage(ReadOnlySpan<byte> filteredDataFull, Span<byte> reconDataFull, int width, int height)
-    {
-        int bytesPerLine = width * 4;
-        int bytesPerLineWithFilter = bytesPerLine + 1;
-
-        ReadOnlySpan<byte> prevReconData = new byte[width * 4];
-
-        for (int line = 0; line < height; line++)
-        {
-            ReadOnlySpan<byte> fullLineData = filteredDataFull[(line * bytesPerLineWithFilter)..((line + 1) * bytesPerLineWithFilter)];
-            ReadOnlySpan<byte> lineData = fullLineData[1..];
-            Span<byte> reconData = reconDataFull[(line * bytesPerLine)..((line + 1) * bytesPerLine)];
-
-            byte filterType = fullLineData[0]; // https://www.w3.org/TR/png-3/#9Filter-types
-
-            for (int i = 0; i < width * 4; i++)
-            {
-                byte x = lineData[i]; // Filt(x)
-                byte b = prevReconData[i]; // Recon(b)
-                byte a = (i >= 4) ? reconData[i - 4] : (byte)0; // Recon(a)
-                byte c = (i >= 4) ? prevReconData[i - 4] : (byte)0; // Recon(c)
-
-                reconData[i] = (byte)(filterType switch
-                {
-                    0 => x,
-                    1 => x + a,
-                    2 => x + b,
-                    3 => x + ((a + b) >> 1),
-                    4 => x + Paeth(a, b, c),
-                    _ => throw new Exception($"Filter type {filterType} not supported"),
-                });
-            }
-            prevReconData = reconData;
-        }
-    }
-
-    private static byte Paeth(byte a, byte b, byte c)
-    {
-        int p = a + b - c;
-        int pa = Math.Abs(p - a);
-        int pb = Math.Abs(p - b);
-        int pc = Math.Abs(p - c);
-
-        if (pa <= pb && pa <= pc) return a;
-        if (pb <= pc) return b;
-        return c;
+        outHeader = header;
+        outCompressedImageData = compressedImageData.ToArray();
     }
 
     private static Chunk ReadNextChunk(ref ReadOnlySpan<byte> next)
@@ -309,13 +255,6 @@ public class PngImageLoader : ImageLoader
         return value;
     }
 
-    private static byte ReadByte(ref ReadOnlySpan<byte> next)
-    {
-        byte value = next[0];
-        next = next[1..];
-        return value;
-    }
-
     private static ReadOnlySpan<byte> ReadBytes(ref ReadOnlySpan<byte> input, int length)
     {
         ReadOnlySpan<byte> result = input[0..length];
@@ -326,11 +265,96 @@ public class PngImageLoader : ImageLoader
     private static string ReadString(ref ReadOnlySpan<byte> next, int length)
     {
         string value = "";
-        for (int i=0; i<length; i++)
+        for (int i = 0; i < length; i++)
             value += (char)next[i];
         next = next[length..];
         return value;
     }
 
+    private unsafe static Span<byte> DecompressData(ReadOnlySpan<byte> compressedData)
+    {
+        fixed (byte* pData = compressedData)
+        {
+            using var inputStream = new UnmanagedMemoryStream(pData, compressedData.Length);
+            using var zlibStream = new ZLibStream(inputStream, CompressionMode.Decompress, false);
+            using var outputStream = new MemoryStream();
 
+            zlibStream.CopyTo(outputStream);
+
+            float factor = (float)outputStream.Length / (float)compressedData.Length;
+            Console.WriteLine($"Decompressed image data from {compressedData.Length} to {outputStream.Length} bytes (factor {factor:F2})");
+
+            return outputStream.ToArray();
+        }
+    }
+
+    private static Span<byte> ReconstructImage(ReadOnlySpan<byte> filteredDataFull, int width, int height)
+    {
+        int bytesPerLine = width * 4;
+        int bytesPerLineWithFilter = bytesPerLine + 1;
+
+        Span<byte> reconDataFull = new byte[bytesPerLine * height];
+        ReadOnlySpan<byte> prevReconLine = new byte[bytesPerLine];
+
+        for (int line = 0; line < height; line++)
+        {
+            ReadOnlySpan<byte> filteredLineWithFilter = filteredDataFull.Slice(line * bytesPerLineWithFilter, bytesPerLineWithFilter);
+            ReadOnlySpan<byte> filteredLine = filteredLineWithFilter[1..];
+            Span<byte> reconLine = reconDataFull.Slice(line * bytesPerLine, bytesPerLine);
+
+            byte filterType = filteredLineWithFilter[0]; // https://www.w3.org/TR/png-3/#9Filter-types
+
+            for (int i = 0; i < bytesPerLine; i++)
+            {
+                byte x = filteredLine[i]; // Filt(x)
+                byte b = prevReconLine[i]; // Recon(b)
+                byte a = (i >= 4) ? reconLine[i - 4] : (byte)0; // Recon(a)
+                byte c = (i >= 4) ? prevReconLine[i - 4] : (byte)0; // Recon(c)
+
+                reconLine[i] = (byte)(filterType switch
+                {
+                    0 => x,
+                    1 => x + a,
+                    2 => x + b,
+                    3 => x + ((a + b) >> 1),
+                    4 => x + Paeth(a, b, c),
+                    _ => throw new Exception($"Filter type {filterType} not supported"),
+                });
+            }
+            prevReconLine = reconLine;
+        }
+
+        return reconDataFull;
+    }
+
+    private static byte Paeth(byte a, byte b, byte c)
+    {
+        int p = a + b - c;
+        int pa = Math.Abs(p - a);
+        int pb = Math.Abs(p - b);
+        int pc = Math.Abs(p - c);
+
+        if (pa <= pb && pa <= pc) return a;
+        if (pb <= pc) return b;
+        return c;
+    }
+
+    private static void FlipY(Span<byte> data, int width, int height)
+    {
+        int bytesPerLine = width * 4;
+
+        Span<byte> temp = new byte[bytesPerLine];
+
+        for (int y1 = 0; y1 < height / 2; y1++)
+        {
+            int y2 = height - y1 - 1;
+
+            Span<byte> data1 = data.Slice(y1 * bytesPerLine, bytesPerLine);
+            Span<byte> data2 = data.Slice(y2 * bytesPerLine, bytesPerLine);
+
+            data1.CopyTo(temp);
+            data2.CopyTo(data1);
+            temp.CopyTo(data2);
+        }
+    }
 }
