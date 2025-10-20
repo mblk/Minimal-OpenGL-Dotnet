@@ -1,8 +1,55 @@
 ﻿using System.Buffers.Binary;
 using System.IO.Compression;
-using System.Runtime.InteropServices;
 
 namespace HelloGL.Engine;
+
+public class FontLoader : AssetLoader<Font>
+{
+    public FontLoader(IAssetReader assetReader, GL gl)
+        : base(assetReader, gl)
+    {
+    }
+
+    public override AssetLoadResult<Font> Load(string name)
+    {
+        var path = Reader.GetAssetPath(AssetType.Font, $"{name}.png");
+
+        byte[] data = Reader.ReadFileAsBytes(path);
+
+        var imageLoader = new PngImageLoader();
+        var imageLoadResult = imageLoader.Load(data, true);
+
+        //var texture = new Texture(GL, imageLoadResult.Width, imageLoadResult.Height, imageLoadResult.Data);
+
+        var sourceFiles = new HashSet<string>() { path };
+
+        //return new AssetLoadResult<Texture>(texture, sourceFiles);
+
+        throw new NotImplementedException();
+    }
+
+    public override AssetLoadResult<Font> Reload(Font asset)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+public class Font : Asset, IDisposable
+{
+    public Font()
+    {
+    }
+
+    public void Dispose()
+    {
+    }
+}
+
+
+
+
+
+
 
 public class TextureLoader : AssetLoader<Texture>
 {

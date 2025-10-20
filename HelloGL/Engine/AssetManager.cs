@@ -21,9 +21,11 @@ public class AssetManager : IDisposable
     private readonly IAssetReader _reader;
     private readonly ShaderLoader _shaderLoader;
     private readonly TextureLoader _textureLoader;
+    private readonly FontLoader _fontLoader;
 
     private readonly Dictionary<string, Shader> _shaders = [];
     private readonly Dictionary<string, Texture> _textures = [];
+    private readonly Dictionary<string, Font> _fonts = [];
 
     public static DirectoryInfo FindBaseDirectory()
     {
@@ -52,6 +54,7 @@ public class AssetManager : IDisposable
         _reader = new FileSystemAssetReader(baseDir);
         _shaderLoader = new ShaderLoader(_reader, gl);
         _textureLoader = new TextureLoader(_reader, gl);
+        _fontLoader = new FontLoader(_reader, gl);
     }
 
     public Shader LoadShader(string name)
@@ -88,6 +91,23 @@ public class AssetManager : IDisposable
         return texture;
     }
 
+    public Font LoadFont(string name)
+    {
+        if (_fonts.TryGetValue(name, out var cachedFont))
+            return cachedFont;
+
+        var loadedFont = _fontLoader.Load(name);
+
+        var font = loadedFont.Asset;
+        var sourceFiles = loadedFont.SourceFiles;
+
+        RegisterAssetDependencies(font, sourceFiles);
+
+        _fonts.Add(name, font);
+
+        return font;
+    }
+
     public bool ReloadAsset(Asset asset)
     {
         try
@@ -103,6 +123,12 @@ public class AssetManager : IDisposable
                 }
 
                 case Texture texture:
+                {
+                    // ...
+                    break;
+                }
+
+                case Font font:
                 {
                     // ...
                     break;
@@ -137,6 +163,12 @@ public class AssetManager : IDisposable
             texture.Dispose();
         }
         _textures.Clear();
+
+        foreach (var font in _fonts.Values)
+        {
+            font.Dispose();
+        }
+        _fonts.Clear();
     }
 
     protected virtual void RegisterAssetDependencies(Asset asset, IReadOnlySet<string> files)
@@ -148,6 +180,7 @@ public class AssetManager : IDisposable
     {
         AssetType.Shader => "Shaders",
         AssetType.Texture => "Textures",
+        AssetType.Font => "Fonts",
         AssetType.Model => "Models",
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
     };

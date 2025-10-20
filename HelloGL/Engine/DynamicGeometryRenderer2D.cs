@@ -30,6 +30,8 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
     private Texture _texture2 = null!;
     private Texture _texture3 = null!;
 
+    private Font _font1 = null!;
+
     private readonly BufferObject _vertexBufferObject;
     private readonly VertexArrayObject<VertexPC> _vertexArrayObject;
     private readonly List<VertexPC> _vertexBuffer = new(_initialVertexBufferSize);
@@ -45,7 +47,9 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
 
         _texture1 = assetManager.LoadTexture("1");
         _texture2 = assetManager.LoadTexture("2");
-        _texture3 = assetManager.LoadTexture("3");
+        _texture3 = assetManager.LoadTexture("font1");
+
+        _font1 = assetManager.LoadFont("font1");
 
         _vertexBufferObject = new BufferObject(assetManager.GL);
         _vertexBufferObject.SetSizeAndUsage(sizeof(VertexPC) * _initialVertexBufferSize, GL.BufferUsage.STREAM_DRAW);
@@ -124,7 +128,7 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
 
             _textureVertexBufferObject.SetData(span, GL.BufferUsage.STREAM_DRAW);
 
-            _texture1.Bind(0);
+            _texture3.Bind(0);
             {
                 _textureShader.Use();
                 _textureShader.SetUniform("uMVP", mvp);
@@ -136,7 +140,7 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
                 }
                 _textureShader.Unuse();
             }
-            _texture1.Unbind(0);
+            _texture3.Unbind(0);
 
             _textureVertexBuffer.Clear();
         }
@@ -153,6 +157,8 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
         _texture1.Dispose();
         _texture2.Dispose();
         _texture3.Dispose();
+
+        _font1.Dispose();
 
         _shader.Dispose();
         _textureShader.Dispose();

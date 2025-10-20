@@ -4,5 +4,6 @@ public enum AssetType
 {
     Shader,
     Texture,
+    Font,
     Model,
 }
