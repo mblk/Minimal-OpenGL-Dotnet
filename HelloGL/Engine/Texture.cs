@@ -3,58 +3,10 @@ using System.IO.Compression;
 
 namespace HelloGL.Engine;
 
-public class FontLoader : AssetLoader<Font>
-{
-    public FontLoader(IAssetReader assetReader, GL gl)
-        : base(assetReader, gl)
-    {
-    }
-
-    public override AssetLoadResult<Font> Load(string name)
-    {
-        var path = Reader.GetAssetPath(AssetType.Font, $"{name}.png");
-
-        byte[] data = Reader.ReadFileAsBytes(path);
-
-        var imageLoader = new PngImageLoader();
-        var imageLoadResult = imageLoader.Load(data, true);
-
-        //var texture = new Texture(GL, imageLoadResult.Width, imageLoadResult.Height, imageLoadResult.Data);
-
-        var sourceFiles = new HashSet<string>() { path };
-
-        //return new AssetLoadResult<Texture>(texture, sourceFiles);
-
-        throw new NotImplementedException();
-    }
-
-    public override AssetLoadResult<Font> Reload(Font asset)
-    {
-        throw new NotImplementedException();
-    }
-}
-
-public class Font : Asset, IDisposable
-{
-    public Font()
-    {
-    }
-
-    public void Dispose()
-    {
-    }
-}
-
-
-
-
-
-
-
 public class TextureLoader : AssetLoader<Texture>
 {
-    public TextureLoader(IAssetReader assetReader, GL gl)
-        : base(assetReader, gl)
+    public TextureLoader(IAssetManager assetManager, IAssetReader assetReader, GL gl)
+        : base(assetManager, assetReader, gl)
     {
     }
 
@@ -64,7 +16,7 @@ public class TextureLoader : AssetLoader<Texture>
         byte[] data = Reader.ReadFileAsBytes(path);
 
         var imageLoader = new PngImageLoader();
-        var imageLoadResult = imageLoader.Load(data, true);
+        var imageLoadResult = imageLoader.Load(data, false);
 
         var texture = new Texture(GL, imageLoadResult.Width, imageLoadResult.Height, imageLoadResult.Data);
 
@@ -94,7 +46,8 @@ public unsafe class Texture : Asset, IDisposable
 
         _gl.BindTexture(GL.TextureTarget.TEXTURE_2D, texId);
 
-        _gl.TexParameterI(GL.TextureTarget.TEXTURE_2D, GL.TextureParameterName.TEXTURE_MIN_FILTER, (int)GL.TextureMinFilter.LINEAR);
+        //_gl.TexParameterI(GL.TextureTarget.TEXTURE_2D, GL.TextureParameterName.TEXTURE_MIN_FILTER, (int)GL.TextureMinFilter.LINEAR);
+        _gl.TexParameterI(GL.TextureTarget.TEXTURE_2D, GL.TextureParameterName.TEXTURE_MIN_FILTER, (int)GL.TextureMinFilter.LINEAR_MIPMAP_LINEAR);
         _gl.TexParameterI(GL.TextureTarget.TEXTURE_2D, GL.TextureParameterName.TEXTURE_MAG_FILTER, (int)GL.TextureMinFilter.LINEAR);
         _gl.TexParameterI(GL.TextureTarget.TEXTURE_2D, GL.TextureParameterName.TEXTURE_WRAP_S, (int)GL.TextureWrapMode.CLAMP_TO_EDGE);
         _gl.TexParameterI(GL.TextureTarget.TEXTURE_2D, GL.TextureParameterName.TEXTURE_WRAP_T, (int)GL.TextureWrapMode.CLAMP_TO_EDGE);

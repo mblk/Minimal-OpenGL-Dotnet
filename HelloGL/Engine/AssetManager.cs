@@ -11,12 +11,20 @@ public interface IAssetReader
     byte[] ReadFileAsBytes(string assetPath);
 }
 
+public interface IAssetManager
+{
+    Shader LoadShader(string name);
+    Texture LoadTexture(string name);
+    Font LoadFont(string name);
+}
+
+
 public abstract class Asset
 {
     // hmm
 }
 
-public class AssetManager : IDisposable
+public class AssetManager : IDisposable, IAssetManager
 {
     private readonly IAssetReader _reader;
     private readonly ShaderLoader _shaderLoader;
@@ -52,9 +60,9 @@ public class AssetManager : IDisposable
         GL = gl;
 
         _reader = new FileSystemAssetReader(baseDir);
-        _shaderLoader = new ShaderLoader(_reader, gl);
-        _textureLoader = new TextureLoader(_reader, gl);
-        _fontLoader = new FontLoader(_reader, gl);
+        _shaderLoader = new ShaderLoader(this, _reader, gl);
+        _textureLoader = new TextureLoader(this, _reader, gl);
+        _fontLoader = new FontLoader(this, _reader, gl);
     }
 
     public Shader LoadShader(string name)

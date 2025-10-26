@@ -4,8 +4,8 @@ namespace HelloGL.Engine;
 
 public class ShaderLoader : AssetLoader<Shader>
 {
-    public ShaderLoader(IAssetReader assetReader, GL gl)
-        : base(assetReader, gl)
+    public ShaderLoader(IAssetManager assetManager, IAssetReader assetReader, GL gl)
+        : base(assetManager, assetReader, gl)
     {
     }
 

@@ -1,5 +1,6 @@
 ﻿using HelloGL.Engine;
 using HelloGL.Platforms;
+using HelloGL.Utils;
 using System.Numerics;
 
 namespace HelloGL.Scenes.Catris;
@@ -15,11 +16,27 @@ internal class CatrisGameScene : Scene
     private float _leftTick = 0;
     private float _rightTick = 0;
 
+    private int _highscore = 0;
+    private int _score = 0;
+    private int _kills = 0;
+    private int _speed = 0;
+
     private const int CellSize = 30;
 
-    public CatrisGameScene(AssetManager assetManager)
-        : base(assetManager)
+    private const int PlaceScoreWithoutKill = 5;
+    private const int PlaceScoreWithKill = 100;
+
+    private const float LeftRightRate = 10.0f; // Hz
+    private const float MaxTickLeftRight = 1.0f / LeftRightRate;
+
+    private const float DownRateSlow = 1.0f;
+    private const float DownRateFast = 15.0f; // Hz
+    private const float DownRateSuperFast = 30.0f; // Hz
+
+    public CatrisGameScene(SceneContext context)
+        : base(context)
     {
+        ResetScore();
     }
 
     public override void Load()
@@ -32,9 +49,26 @@ internal class CatrisGameScene : Scene
         _renderer.Dispose();
     }
 
-    public override void Update(float dt, IInput input)
+    public override void Update(UpdateContext context)
     {
-        var kb = input.Keyboard;
+        var dt = context.DeltaTime;
+        var kb = context.Input.Keyboard;
+
+        if (kb.WasPressed(Key.Escape))
+        {
+            context.SceneController.RequestSceneChange("menu");
+        }
+
+#if DEBUG
+        if (kb.WasPressed(Key.D1))
+        {
+            IncreaseKills(-5);
+        }
+        if (kb.WasPressed(Key.D2))
+        {
+            IncreaseKills(5);
+        }
+#endif
 
         if (kb.WasPressed(Key.Q))
         {
@@ -50,8 +84,6 @@ internal class CatrisGameScene : Scene
         // left / right
         //
 
-        const float maxTickLeftRight = 0.12f;
-
         if (kb.WasPressed(Key.A))
         {
             _game.MovePieceLeft();
@@ -65,7 +97,7 @@ internal class CatrisGameScene : Scene
         if (kb.Get(Key.A))
         {
             _leftTick += dt;
-            if (_leftTick > maxTickLeftRight)
+            if (_leftTick > MaxTickLeftRight)
             {
                 _leftTick = 0;
                 _game.MovePieceLeft();
@@ -79,7 +111,7 @@ internal class CatrisGameScene : Scene
         if (kb.Get(Key.D))
         {
             _rightTick += dt;
-            if (_rightTick > maxTickLeftRight)
+            if (_rightTick > MaxTickLeftRight)
             {
                 _rightTick = 0;
                 _game.MovePieceRight();
@@ -94,13 +126,13 @@ internal class CatrisGameScene : Scene
         // down
         //
 
-        var maxDownTick = 1.0f;
+        var downRate = GetDownRateFromSpeed(_speed);
 
         if (kb.Get(Key.S))
         {
-            if (!_downButtonNeedsRelease)
+            if (!_downButtonNeedsRelease && downRate < DownRateSuperFast)
             {
-                maxDownTick = 0.04f;
+                downRate = DownRateSuperFast;
             }
         }
         else
@@ -108,21 +140,89 @@ internal class CatrisGameScene : Scene
             _downButtonNeedsRelease = false;
         }
 
+        var maxDownTick = 1.0f / downRate;
+
         _downTick += dt;
         if (_downTick >= maxDownTick)
         {
             _downTick = 0.0f;
-            
-            if (_game.MovePieceDown())
+
+            var moveResult = _game.MovePieceDown(out int killCount);
+
+            switch (moveResult)
             {
-                _downButtonNeedsRelease = true;
+                case CatrisGame.MovePieceDownResult.Moved:
+                    break;
+
+                case CatrisGame.MovePieceDownResult.Placed:
+                    if (killCount > 0)
+                    {
+                        IncreaseScore(GetRowKillScore(killCount));
+                        IncreaseKills(killCount);
+                    }
+                    else
+                    {
+                        IncreaseScore(PlaceScoreWithoutKill);
+                    }
+                    break;
+
+                case CatrisGame.MovePieceDownResult.GameOver:
+                    ResetScore();
+                    break;
+
+                default: throw new Exception("unknown result");
             }
+
+            _downButtonNeedsRelease = moveResult != CatrisGame.MovePieceDownResult.Moved;
         }
     }
 
-    public override void Render(float dt, (int, int) windowSize)
+    private void ResetScore()
     {
-        var (width, height) = windowSize;
+        _score = 0;
+        _kills = 0;
+        _speed = 0;
+    }
+
+    private void IncreaseScore(int increment)
+    {
+        _score += increment;
+
+        if (_score > _highscore)
+            _highscore = _score;
+    }
+
+    private void IncreaseKills(int increment)
+    {
+        _kills += increment;
+        if (_kills < 0) _kills = 0;
+
+        _speed = _kills / 10;
+    }
+
+    private static int GetRowKillScore(int killCount)
+    {
+        int s = (killCount - 1) * 2;
+
+        if (s < 0) s = 0;
+        if (s > 10) s = 10;
+
+        return (PlaceScoreWithKill << s);
+
+        // 1: 100
+        // 2: 400
+        // 3: 1600
+        // 4: 6400
+    }
+
+    private static float GetDownRateFromSpeed(int speed)
+    {
+        return MathUtils.Lerp(DownRateSlow, DownRateFast, (float)speed / 10.0f);
+    }
+
+    public override void Render(RenderContext context)
+    {
+        var (width, height) = context.WindowSize;
 
         var mOrthoProj = Matrix4x4.CreateOrthographicOffCenter(0, width, height, 0, -1, 1);
         var mModel = Matrix4x4.Identity;
@@ -132,6 +232,7 @@ internal class CatrisGameScene : Scene
         RenderBorder();
         RenderBoard();
         RenderCurrentPiece();
+        RenderUI(height);
 
         _renderer.Render(mvp);
     }
@@ -200,7 +301,16 @@ internal class CatrisGameScene : Scene
     {
         return new Vector2(
             150 + x * CellSize,
-            150 + y * CellSize
+            250 + y * CellSize
         );
+    }
+
+    private void RenderUI(int height)
+    {
+        _renderer.AddText(new Vector2(20, 0), 1.0f, $"Score: {_score}");
+        _renderer.AddText(new Vector2(20, 64), 0.666f, $"Highscore: {_highscore}");
+        _renderer.AddText(new Vector2(20, 96), 0.666f, $"Speed: {_speed}");
+        _renderer.AddText(new Vector2(20, 128), 0.666f, $"Kills: {_kills}");
+        _renderer.AddText(new Vector2(50, height - 50), 0.666f, $"Move: A/S/D        Rotate: Q/W/E");
     }
 }

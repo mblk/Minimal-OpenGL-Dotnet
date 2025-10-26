@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace HelloGL.Engine;
@@ -20,17 +21,25 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
         public Vector2 UV;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct VertexFont
+    {
+        public Vector2 Position;
+        public Vector3 Color;
+        public Vector2 UV;
+    }
+
     private const int _initialVertexBufferSize = 1024;
 
 
     private readonly Shader _shader;
     private readonly Shader _textureShader;
+    private readonly Shader _fontShader;
 
-    private Texture _texture1 = null!;
-    private Texture _texture2 = null!;
-    private Texture _texture3 = null!;
+    private readonly Texture _texture1;
+    private readonly Texture _texture2;
 
-    private Font _font1 = null!;
+    private readonly Font _font1;
 
     private readonly BufferObject _vertexBufferObject;
     private readonly VertexArrayObject<VertexPC> _vertexArrayObject;
@@ -40,14 +49,18 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
     private readonly VertexArrayObject<VertexPCT> _textureVertexArrayObject;
     private readonly List<VertexPCT> _textureVertexBuffer = new(_initialVertexBufferSize);
 
+    private readonly BufferObject _fontVertexBufferObject;
+    private readonly VertexArrayObject<VertexPCT> _fontVertexArrayObject;
+    private readonly List<VertexPCT> _fontVertexBuffer = new(_initialVertexBufferSize);
+
     public DynamicGeometryRenderer2D(AssetManager assetManager)
     {
         _shader = assetManager.LoadShader("triangle");
         _textureShader = assetManager.LoadShader("texture");
+        _fontShader = assetManager.LoadShader("font");
 
         _texture1 = assetManager.LoadTexture("1");
         _texture2 = assetManager.LoadTexture("2");
-        _texture3 = assetManager.LoadTexture("font1");
 
         _font1 = assetManager.LoadFont("font1");
 
@@ -58,6 +71,10 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
         _textureVertexBufferObject = new BufferObject(assetManager.GL);
         _textureVertexBufferObject.SetSizeAndUsage(sizeof(VertexPCT) * _initialVertexBufferSize, GL.BufferUsage.STREAM_DRAW);
         _textureVertexArrayObject = new VertexArrayObject<VertexPCT>(assetManager.GL, _textureVertexBufferObject);
+
+        _fontVertexBufferObject = new BufferObject(assetManager.GL);
+        _fontVertexBufferObject.SetSizeAndUsage(sizeof(VertexPCT) * _initialVertexBufferSize, GL.BufferUsage.STREAM_DRAW);
+        _fontVertexArrayObject = new VertexArrayObject<VertexPCT>(assetManager.GL, _fontVertexBufferObject);
     }
 
     public void AddTriangle(Vector2 p1, Vector3 c1, Vector2 p2, Vector3 c2, Vector2 p3, Vector3 c3)
@@ -71,10 +88,10 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
     {
         Vector2 halfSize = size * 0.5f;
 
-        Vector2 bl = new(center.X - halfSize.X, center.Y - halfSize.Y);
-        Vector2 br = new(center.X + halfSize.X, center.Y - halfSize.Y);
-        Vector2 tr = new(center.X + halfSize.X, center.Y + halfSize.Y);
-        Vector2 tl = new(center.X - halfSize.X, center.Y + halfSize.Y);
+        Vector2 tl = new(center.X - halfSize.X, center.Y - halfSize.Y);
+        Vector2 tr = new(center.X + halfSize.X, center.Y - halfSize.Y);
+        Vector2 br = new(center.X + halfSize.X, center.Y + halfSize.Y);
+        Vector2 bl = new(center.X - halfSize.X, center.Y + halfSize.Y);
 
         _vertexBuffer.Add(new VertexPC { Position = bl, Color = color });
         _vertexBuffer.Add(new VertexPC { Position = br, Color = color });
@@ -84,15 +101,15 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
         _vertexBuffer.Add(new VertexPC { Position = tr, Color = color });
         _vertexBuffer.Add(new VertexPC { Position = tl, Color = color });
     }
-
+    
     public void AddRectangleWithTexture(Vector2 center, Vector2 size, Vector3 color, Vector2 uvMin, Vector2 uvMax)
     {
         Vector2 halfSize = size * 0.5f;
 
-        Vector2 bl = new(center.X - halfSize.X, center.Y - halfSize.Y);
-        Vector2 br = new(center.X + halfSize.X, center.Y - halfSize.Y);
-        Vector2 tr = new(center.X + halfSize.X, center.Y + halfSize.Y);
-        Vector2 tl = new(center.X - halfSize.X, center.Y + halfSize.Y);
+        Vector2 tl = new(center.X - halfSize.X, center.Y - halfSize.Y);
+        Vector2 tr = new(center.X + halfSize.X, center.Y - halfSize.Y);
+        Vector2 br = new(center.X + halfSize.X, center.Y + halfSize.Y);
+        Vector2 bl = new(center.X - halfSize.X, center.Y + halfSize.Y);
 
         _textureVertexBuffer.Add(new VertexPCT { Position = bl, Color = color, UV = new(uvMin.X, uvMax.Y) });
         _textureVertexBuffer.Add(new VertexPCT { Position = br, Color = color, UV = new(uvMax.X, uvMax.Y) });
@@ -100,6 +117,57 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
         _textureVertexBuffer.Add(new VertexPCT { Position = bl, Color = color, UV = new(uvMin.X, uvMax.Y) });
         _textureVertexBuffer.Add(new VertexPCT { Position = tr, Color = color, UV = new(uvMax.X, uvMin.Y) });
         _textureVertexBuffer.Add(new VertexPCT { Position = tl, Color = color, UV = new(uvMin.X, uvMin.Y) });
+    }
+
+
+
+    public void AddText(Vector2 position, float scale, string text)
+    {
+        var font = _font1;
+
+        Vector3 color = new Vector3(1, 1, 1);
+
+        Vector2 currentPosition = position;
+
+        foreach (char c in text)
+        {
+            if (!font.MetaData.Characters.TryGetValue(c, out var charData))
+            {
+                Console.WriteLine($"char data {(uint)c} '{c}' not found");
+                continue;
+            }
+
+            if (c == ' ')
+            {
+                currentPosition.X += charData.XAdvance * scale;
+                continue;
+            }
+
+            Vector2 uvMin = charData.UvMin;
+            Vector2 uvMax = charData.UvMax;
+            Vector2 size = charData.Size * scale;
+            Vector2 offset = charData.Offset * scale;
+
+            float xl = currentPosition.X + offset.X;
+            float xr = xl + size.X;
+
+            float yt = currentPosition.Y + offset.Y;
+            float yb = currentPosition.Y + font.MetaData.LineBase * scale;
+
+            Vector2 tl = new(xl, yt);
+            Vector2 tr = new(xr, yt);
+            Vector2 br = new(xr, yb);
+            Vector2 bl = new(xl, yb);
+
+            _fontVertexBuffer.Add(new VertexPCT { Position = bl, Color = color, UV = new(uvMin.X, uvMax.Y) });
+            _fontVertexBuffer.Add(new VertexPCT { Position = br, Color = color, UV = new(uvMax.X, uvMax.Y) });
+            _fontVertexBuffer.Add(new VertexPCT { Position = tr, Color = color, UV = new(uvMax.X, uvMin.Y) });
+            _fontVertexBuffer.Add(new VertexPCT { Position = bl, Color = color, UV = new(uvMin.X, uvMax.Y) });
+            _fontVertexBuffer.Add(new VertexPCT { Position = tr, Color = color, UV = new(uvMax.X, uvMin.Y) });
+            _fontVertexBuffer.Add(new VertexPCT { Position = tl, Color = color, UV = new(uvMin.X, uvMin.Y) });
+
+            currentPosition.X += charData.XAdvance * scale;
+        }
     }
 
     public void Render(Matrix4x4 mvp)
@@ -128,7 +196,7 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
 
             _textureVertexBufferObject.SetData(span, GL.BufferUsage.STREAM_DRAW);
 
-            _texture3.Bind(0);
+            _texture1.Bind(0);
             {
                 _textureShader.Use();
                 _textureShader.SetUniform("uMVP", mvp);
@@ -140,9 +208,40 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
                 }
                 _textureShader.Unuse();
             }
-            _texture3.Unbind(0);
+            _texture1.Unbind(0);
 
             _textureVertexBuffer.Clear();
+        }
+
+        if (_fontVertexBuffer.Count > 0)
+        {
+            ReadOnlySpan<VertexPCT> span = CollectionsMarshal.AsSpan(_fontVertexBuffer);
+
+            _fontVertexBufferObject.SetData(span, GL.BufferUsage.STREAM_DRAW);
+
+            _font1.Texture.Bind(0);
+            {
+                _fontShader.Use();
+                _fontShader.SetUniform("uMVP", mvp);
+                _fontShader.SetUniform("uTex", 0);
+                {
+                    _fontVertexArrayObject.Bind();
+                    {
+                        _fontShader.SetUniform("uPass1", 1.0f);
+                        _fontShader.SetUniform("uPass2", 0.0f);
+                        _fontVertexArrayObject.Draw(GL.PrimitiveType.TRIANGLES, 0, (uint)_fontVertexBuffer.Count);
+
+                        _fontShader.SetUniform("uPass1", 0.0f);
+                        _fontShader.SetUniform("uPass2", 1.0f);
+                        _fontVertexArrayObject.Draw(GL.PrimitiveType.TRIANGLES, 0, (uint)_fontVertexBuffer.Count);
+                    }
+                    _fontVertexArrayObject.Unbind();
+                }
+                _fontShader.Unuse();
+            }
+            _font1.Texture.Unbind(0);
+
+            _fontVertexBuffer.Clear();
         }
     }
 
@@ -154,13 +253,7 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
         _textureVertexArrayObject.Dispose();
         _textureVertexBufferObject.Dispose();
 
-        _texture1.Dispose();
-        _texture2.Dispose();
-        _texture3.Dispose();
-
-        _font1.Dispose();
-
-        _shader.Dispose();
-        _textureShader.Dispose();
+        _fontVertexArrayObject.Dispose();
+        _fontVertexBufferObject.Dispose();
     }
 }

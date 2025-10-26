@@ -1,6 +1,7 @@
 ﻿using HelloGL.Engine;
 using HelloGL.Platforms;
 using HelloGL.Scenes.Catris;
+using HelloGL.Scenes.Menu;
 using HelloGL.Scenes.MyGame;
 using HelloGL.Utils;
 using System.Diagnostics;
@@ -17,8 +18,7 @@ internal unsafe static class Program
         // init platform
 
         var platformOptions = new PlatformOptions();
-        //var windowOptions = new WindowOptions(600, 1000, "Catris");
-        var windowOptions = new WindowOptions(1600, 1000, "Catris");
+        var windowOptions = new WindowOptions(600, 1000, "Catris");
 
         using var platform = PlatformFactory.CreatePlatform(platformOptions);
         using var window = platform.CreateWindow(windowOptions);
@@ -35,12 +35,18 @@ internal unsafe static class Program
             ? new AssetManagerWithHotReload(assetBaseDir, gl)
             : new AssetManager(assetBaseDir, gl);
 
-        // init content
+        // init scenes
 
-        Scene currentScene = new MyGameScene(assetManager);
-        //Scene currentScene = new CatrisGameScene(assetManager);
+        using SceneManager sceneManager = new SceneManager(new SceneContext()
+        {
+            AssetManager = assetManager,
+        });
 
-        currentScene.Load();
+        sceneManager.RegisterScene("menu", c => new MenuScene(c));
+        sceneManager.RegisterScene("classic", c => new CatrisGameScene(c));
+        sceneManager.RegisterScene("test", c => new MyGameScene(c));
+
+        sceneManager.SetCurrentScene("menu");
 
         // main loop
 
@@ -49,7 +55,7 @@ internal unsafe static class Program
 
         var lastTime = DateTime.Now;
 
-        while (window.ProcessEvents())
+        while (window.ProcessEvents() && !sceneManager.ExitRequested)
         {
             //
             // update
@@ -61,9 +67,13 @@ internal unsafe static class Program
 
             (assetManager as AssetManagerWithHotReload)?.ProcessChanges();
 
-            if (window.Input.Keyboard.WasPressed(Key.Escape)) break;
-
-            currentScene.Update(dt, window.Input);
+            sceneManager.Update(new UpdateContext()
+            {
+                DeltaTime = dt,
+                WindowSize = window.Size,
+                Input = window.Input,
+                SceneController = sceneManager,
+            });
 
             //
             // render
@@ -72,7 +82,11 @@ internal unsafe static class Program
             gl.ClearColor(0.07f, 0.08f, 0.12f, 1f);
             gl.Clear(GL.ClearBufferMask.COLOR_BUFFER_BIT);
 
-            currentScene.Render(dt, window.Size);
+            sceneManager.Render(new RenderContext()
+            {
+                DeltaTime = dt,
+                WindowSize = window.Size,
+            });
 
             window.SwapBuffers();
 
@@ -92,6 +106,6 @@ internal unsafe static class Program
 
         // cleanup
 
-        currentScene.Unload();
+        
     }
 }

@@ -2,10 +2,10 @@
 fileVersion=1
 
 # font settings
-fontName=Arial
+fontName=Comic Sans MS
 fontFile=
 charSet=0
-fontSize=32
+fontSize=64
 aa=1
 scaleH=100
 useSmoothing=1
@@ -23,10 +23,10 @@ autoFitFontSizeMin=0
 autoFitFontSizeMax=0
 
 # character alignment
-paddingDown=0
-paddingUp=0
-paddingRight=0
-paddingLeft=0
+paddingDown=4
+paddingUp=4
+paddingRight=4
+paddingLeft=4
 spacingHoriz=1
 spacingVert=1
 useFixedHeight=0
@@ -34,8 +34,8 @@ forceZero=0
 widthPaddingFactor=0.00
 
 # output file
-outWidth=256
-outHeight=256
+outWidth=512
+outHeight=512
 outBitDepth=32
 fontDescFormat=2
 fourChnlPacked=0
@@ -51,7 +51,7 @@ invG=0
 invB=0
 
 # outline
-outlineThickness=0
+outlineThickness=1
 
 # selected chars
 chars=32-126

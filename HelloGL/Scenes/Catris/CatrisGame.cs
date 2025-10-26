@@ -26,6 +26,40 @@ internal class CatrisGame // Quick and dirty, should clean this up
         public int Y;
     }
 
+    private class PieceGenerator
+    {
+        private readonly IReadOnlyList<PieceType> _allTypes = Enum.GetValues<PieceType>();
+        private readonly Random _random = new();
+        private readonly Queue<PieceType> _bag = [];
+
+        public PieceGenerator()
+        {
+        }
+
+        public PieceType GetNext()
+        {
+            if (_bag.TryDequeue(out PieceType pieceType))
+                return pieceType;
+
+            GenerateNewBag();
+            Debug.Assert(_bag.Count > 0);
+            return _bag.Dequeue();
+        }
+
+        private void GenerateNewBag()
+        {
+            Debug.Assert(_bag.Count == 0);
+
+            var newBag = _allTypes.ToArray();
+            _random.Shuffle(newBag);
+
+            foreach (var x in newBag)
+                _bag.Enqueue(x);
+
+            Console.WriteLine($"new bag: {String.Join(",", newBag)}");
+        }
+    }
+
     private static readonly IReadOnlyDictionary<PieceType, bool[,]> _pieceShapes = new Dictionary<PieceType, bool[,]>()
     {
         { PieceType.I, new bool[,] { { true, true, true, true } } },
@@ -95,8 +129,6 @@ internal class CatrisGame // Quick and dirty, should clean this up
         }
     }
 
-
-
     public struct Cell
     {
         public bool IsOccupied;
@@ -105,12 +137,11 @@ internal class CatrisGame // Quick and dirty, should clean this up
     public const int Width = 10;
     public const int Height = 20;
 
-    public readonly Cell[,] Cells = new Cell[Height, Width];
+    public Cell[,] Cells { get; } = new Cell[Height, Width];
 
+    public Piece CurrentPiece { get; private set; } = null!;
 
-    public Piece CurrentPiece = null!;
-
-    private readonly Random _random = new();
+    private readonly PieceGenerator _pieceGenerator = new();
 
     public CatrisGame()
     {
@@ -125,22 +156,24 @@ internal class CatrisGame // Quick and dirty, should clean this up
 
     public void NextPiece()
     {
-        var allTypes = Enum.GetValues<PieceType>();
-        var randomIndex = _random.Next() % allTypes.Length;
-        var randomType = allTypes[randomIndex];
+        PieceType randomType = _pieceGenerator.GetNext();
+        Rotation randomRotation = Rotation.Deg0; // XXX random ?
+
+        var shape = GetShape(randomType, randomRotation);
+        var shapeWidth = shape.GetLength(1);
 
         CurrentPiece = new()
         {
             Type = randomType,
-            Rotation = Rotation.Deg0,
-            X = Width / 2,
+            Rotation = randomRotation,
+            X = Width / 2 - shapeWidth / 2,
             Y = 0
         };
     }
 
     public bool[,] GetCurrentPieceRotatedShape()
     {
-        return _rotatedShapes[(CurrentPiece.Type, CurrentPiece.Rotation)];
+        return GetShape(CurrentPiece.Type, CurrentPiece.Rotation);
     }
 
     private static bool[,] GetShape(PieceType type, Rotation rotation)
@@ -210,8 +243,10 @@ internal class CatrisGame // Quick and dirty, should clean this up
         }
     }
 
-    private void KillFullLines()
+    private int KillFullLines()
     {
+        int killCount = 0;
+
         for (int y = Height - 1; y >= 0; )
         {
             bool lineIsFull = true;
@@ -246,7 +281,11 @@ internal class CatrisGame // Quick and dirty, should clean this up
             {
                 Cells[0, x].IsOccupied = false;
             }
+
+            killCount++;
         }
+
+        return killCount;
     }
 
     public void MovePieceLeft()
@@ -265,26 +304,36 @@ internal class CatrisGame // Quick and dirty, should clean this up
         }
     }
 
-    public bool MovePieceDown()
+    public enum MovePieceDownResult
     {
+        Moved,
+        Placed,
+        GameOver,
+    }
+
+    public MovePieceDownResult MovePieceDown(out int killCount)
+    {
+        killCount = 0;
+
         if (SimulateMove(0, 1))
         {
             CurrentPiece.Y++;
 
-            return false;
+            return MovePieceDownResult.Moved;
         }
         else
         {
             PlacePiece();
-            KillFullLines();
+            killCount = KillFullLines();
             NextPiece();
             if (!SimulateMove(0, 0))
             {
                 Console.WriteLine("Game over");
                 Reset();
+                return MovePieceDownResult.GameOver;
             }
 
-            return true;
+            return MovePieceDownResult.Placed;
         }
     }
 

@@ -10,8 +10,10 @@ internal class MyGameScene : Scene
 
     private Vector2 _playerPos = new Vector2(100, 100);
 
-    public MyGameScene(AssetManager assetManager)
-        : base(assetManager)
+    private float _time = 0f;
+
+    public MyGameScene(SceneContext context)
+        : base(context)
     {
     }
 
@@ -25,24 +27,28 @@ internal class MyGameScene : Scene
         _renderer.Dispose();
     }
 
-    public override void Update(float dt, IInput input)
+    public override void Update(UpdateContext context)
     {
-        var kb = input.Keyboard;
+        var dt = context.DeltaTime;
+        var kb = context.Input.Keyboard;
 
-        if (kb.WasPressed(Key.Space))
+        if (kb.WasPressed(Key.Escape))
         {
-            Console.WriteLine("jump");
+            context.SceneController.RequestSceneChange("menu");
         }
 
         if (kb.Get(Key.A)) _playerPos.X -= 100f * dt;
         if (kb.Get(Key.D)) _playerPos.X += 100f * dt;
         if (kb.Get(Key.W)) _playerPos.Y -= 100f * dt;
         if (kb.Get(Key.S)) _playerPos.Y += 100f * dt;
+
+        _time += dt;
     }
 
-    public override void Render(float dt, (int,int) windowSize)
+    public override void Render(RenderContext context)
     {
-        var (width, height) = windowSize;
+        var dt = context.DeltaTime;
+        var (width, height) = context.WindowSize;
 
         var mOrthoProj = Matrix4x4.CreateOrthographicOffCenter(0, width, height, 0, -1, 1);
         var mModel = Matrix4x4.Identity;
@@ -67,6 +73,10 @@ internal class MyGameScene : Scene
         _renderer.AddRectangleWithTexture(new Vector2(800, 500), new Vector2(800, 800), new Vector3(1, 1, 1), new Vector2(0, 0), new Vector2(1, 1));
 
         //_renderer.AddRectangleWithTexture(new Vector2(1100, 300), new Vector2(300, 300), new Vector3(1, 1, 1), new Vector2(0, 0), new Vector2(1, 1));
+
+        float fontScale = 1.0f + MathF.Max(0.0f, MathF.Sin(_time)) * 5.0f;
+
+        _renderer.AddText(new Vector2(100, 200), fontScale, "Hello World! 123 (4) [5] {6} .,/-+_");
 
         _renderer.Render(mvp);
     }
