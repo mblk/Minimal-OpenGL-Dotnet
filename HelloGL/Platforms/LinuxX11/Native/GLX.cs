@@ -2,7 +2,7 @@
 
 namespace HelloGL.Platforms.LinuxX11.Native;
 
-internal unsafe static class GLX
+internal unsafe class GLX
 {
     // --- Constants ---
     public const int GLX_X_RENDERABLE = 0x8012;
@@ -43,25 +43,28 @@ internal unsafe static class GLX
     [DllImport("libGL.so.1")] public static extern void glXWaitGL();
     [DllImport("libGL.so.1")] public static extern void glXWaitX();
 
-    // EXT-Variante (meist vorhanden)
-    //[DllImport("libGL.so.1")] public static extern void glXSwapIntervalEXT(IntPtr dpy, IntPtr drawable, int interval);
-
-    //[DllImport("libGL.so.1")] private static extern IntPtr glXGetProcAddressARB([MarshalAs(UnmanagedType.LPUTF8Str)] string name);
-
     [DllImport("libGL.so.1")] public static extern nint glXGetProcAddress([MarshalAs(UnmanagedType.LPUTF8Str)] string name);
 
 
 
-    public static delegate* unmanaged<nint, nint, int, void> glXSwapIntervalEXT;
+    private delegate* unmanaged<nint, nint, int, void> _glXSwapIntervalEXT;
 
+    private readonly IntPtr _libGL;
 
-
-    public static void LoadExtensions()
+    public GLX()
     {
-        glXSwapIntervalEXT = (delegate* unmanaged<nint, nint, int, void>)GetProcAddressWithFallback("glXSwapIntervalEXT");
-        if (glXSwapIntervalEXT == null)
+        if (!NativeLibrary.TryLoad("libGL.so.1", out _libGL))
+            throw new Exception("Failed to load libGL.so.1");
+
+        LoadExtensions();
+    }
+
+    private void LoadExtensions()
+    {
+        _glXSwapIntervalEXT = (delegate* unmanaged<nint, nint, int, void>)GetProcAddressWithFallback("glXSwapIntervalEXT");
+        if (_glXSwapIntervalEXT == null)
         {
-             Console.WriteLine("glXSwapIntervalEXT not found.");
+            Console.WriteLine("glXSwapIntervalEXT not found.");
         }
         else
         {
@@ -69,15 +72,23 @@ internal unsafe static class GLX
         }
     }
 
-
-
-    //public static IntPtr glXGetProcAddress(string name) => glXGetProcAddressARB(name);
-
-    public static nint GetProcAddressWithFallback(string name)
+    public nint GetProcAddressWithFallback(string name)
     {
         var p = glXGetProcAddress(name);
-        if (p != IntPtr.Zero) return p;
-        return GetExport(name);
+        if (p != IntPtr.Zero)
+            return p;
+
+        if (NativeLibrary.TryGetExport(_libGL, name, out p))
+            return p;
+
+        Console.WriteLine($"GLX: Failed to get address of {name}");
+        return IntPtr.Zero;
+    }
+    
+    public void SwapIntervalEXT(nint display, nint drawable, int interval)
+    {
+        if (_glXSwapIntervalEXT != null)
+            _glXSwapIntervalEXT(display, drawable, interval);
     }
 
     public static void GetWindowSize(nint display, nint window, out int w, out int h)
@@ -85,20 +96,5 @@ internal unsafe static class GLX
         X11.XWindowAttributes attr;
         X11.XGetWindowAttributes(display, window, out attr);
         w = attr.width; h = attr.height;
-    }
-
-    private static IntPtr _libGL = IntPtr.Zero;
-
-    private static IntPtr GetExport(string name)
-    {
-        if (_libGL == IntPtr.Zero)
-        {
-            if (!NativeLibrary.TryLoad("libGL.so.1", out _libGL))
-                throw new Exception("Failed to load libGL.so.1");
-        }
-
-        if (_libGL != IntPtr.Zero && NativeLibrary.TryGetExport(_libGL, name, out var p))
-            return p;
-        return IntPtr.Zero;
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace HelloGL.Platforms.LinuxX11.Native;
 
@@ -6,6 +7,7 @@ internal static class X11
 {
     public const long ExposureMask = 1L << 15;
     public const long KeyPressMask = 1L << 0;
+    public const long KeyReleaseMask = 1L << 1;
     public const long StructureNotifyMask = 1L << 17;
 
     public const long CWColormap = 1 << 13;
@@ -13,23 +15,44 @@ internal static class X11
 
     public const int ClientMessage = 33;
     public const int ConfigureNotify = 22;
+    public const int KeyPress = 2;
+    public const int KeyRelease = 3;
+
 
 
     [StructLayout(LayoutKind.Sequential)]
     public struct XVisualInfo
     {
-        public nint visual; public nint visualid; public int screen; public int depth;
-        public int c_class; public long red_mask; public long green_mask; public long blue_mask;
-        public int colormap_size; public int bits_per_rgb;
+        public nint visual;
+        public nint visualid;
+        public int screen;
+        public int depth;
+        public int c_class;
+        public long red_mask;
+        public long green_mask;
+        public long blue_mask;
+        public int colormap_size;
+        public int bits_per_rgb;
     }
 
     [StructLayout(LayoutKind.Sequential)]
     public struct XSetWindowAttributes
     {
-        public nint background_pixmap; public long background_pixel; public long border_pixmap; public long border_pixel;
-        public int bit_gravity; public int win_gravity; public int backing_store; public long backing_planes; public long backing_pixel;
-        public bool save_under; public long event_mask; public long do_not_propagate_mask; public bool override_redirect;
-        public nint colormap; public nint cursor;
+        public nint background_pixmap;
+        public long background_pixel;
+        public long border_pixmap;
+        public long border_pixel;
+        public int bit_gravity;
+        public int win_gravity;
+        public int backing_store;
+        public long backing_planes;
+        public long backing_pixel;
+        public bool save_under;
+        public long event_mask;
+        public long do_not_propagate_mask;
+        public bool override_redirect;
+        public nint colormap;
+        public nint cursor;
     }
 
     [StructLayout(LayoutKind.Sequential)]

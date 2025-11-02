@@ -9,7 +9,7 @@ public static class EnumExtensions
         where T : struct, Enum
     {
         var allValues = Enum.GetValues<T>();
-        var currentIndex = allValues.IndexOf(current);
+        var currentIndex = Array.IndexOf(allValues, current);
         Debug.Assert(currentIndex != -1);
         var newIndex = currentIndex + delta;
 

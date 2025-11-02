@@ -13,7 +13,7 @@ public static class PlatformFactory
         
         if (OperatingSystem.IsLinux())
         {
-            var xdgSessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE");
+            var xdgSessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE_");
             if (string.Equals(xdgSessionType, "wayland", StringComparison.OrdinalIgnoreCase))
             {
                 return new LinuxWayland.LinuxWaylandPlatform(options);
