@@ -1,9 +1,10 @@
 ﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace HelloGL.Platforms.LinuxX11.Native;
 
-internal static class X11
+internal unsafe static class X11
 {
     public const long ExposureMask = 1L << 15;
     public const long KeyPressMask = 1L << 0;
@@ -58,21 +59,57 @@ internal static class X11
     [StructLayout(LayoutKind.Sequential)]
     public struct XWindowAttributes
     {
-        public nint x, y; public int width, height; public int border_width; public int depth;
-        public nint visual; public nint root; public int c_class;
-        public int bit_gravity, win_gravity; public int backing_store; public long backing_planes; public long backing_pixel;
-        public bool save_under; public nint colormap; public bool map_installed; public int map_state;
-        public long all_event_masks; public long your_event_mask; public long do_not_propagate_mask; public bool override_redirect;
+        public nint x, y;
+        public int width, height;
+        public int border_width;
+        public int depth;
+        public nint visual;
+        public nint root;
+        public int c_class;
+        public int bit_gravity, win_gravity;
+        public int backing_store;
+        public long backing_planes;
+        public long backing_pixel;
+        public bool save_under;
+        public nint colormap;
+        public bool map_installed;
+        public int map_state;
+        public long all_event_masks;
+        public long your_event_mask;
+        public long do_not_propagate_mask;
+        public bool override_redirect;
         public nint screen;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    public struct XEvent
+    [StructLayout(LayoutKind.Explicit)]
+    public struct XEventAny
     {
-        public int type;
-        // Padding auf Maxgröße ist hier weggelassen – wir verwenden nur 'type'
-        public long pad1, pad2, pad3, pad4, pad5, pad6, pad7, pad8, pad9, pad10, pad11, pad12, pad13, pad14, pad15, pad16, pad17, pad18, pad19, pad20, pad21, pad22, pad23, pad24;
+        [FieldOffset(0)] public int type;
+        [FieldOffset(8)] public uint serial;
+        [FieldOffset(16)] public int send_event; // bool
+        [FieldOffset(24)] public nint display; // pointer
+        [FieldOffset(32)] public int window; // id
     }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct XKeyEvent
+    {
+        [FieldOffset(0)] public int type;
+        [FieldOffset(8)] public uint serial;
+        [FieldOffset(16)] public int send_event; // bool
+        [FieldOffset(24)] public nint display; // pointer
+        [FieldOffset(32)] public int window; // id
+        [FieldOffset(40)] public int root;
+        [FieldOffset(48)] public int subwindow;
+        [FieldOffset(56)] public int time;
+        [FieldOffset(64)] public int x, y;
+        [FieldOffset(72)] public int x_root, y_root;
+        [FieldOffset(80)] public uint state;
+        [FieldOffset(84)] public uint keycode;
+        [FieldOffset(88)] public int same_screen; // bool 
+    }
+
+
 
     [DllImport("libX11.so.6")] public static extern nint XOpenDisplay(nint display);
     [DllImport("libX11.so.6")] public static extern int XDefaultScreen(nint display);
@@ -90,7 +127,9 @@ internal static class X11
     [DllImport("libX11.so.6")] public static extern void XCloseDisplay(nint display);
 
     [DllImport("libX11.so.6")] public static extern int XPending(nint display);
-    [DllImport("libX11.so.6")] public static extern void XNextEvent(nint display, out XEvent xevent);
+    //[DllImport("libX11.so.6")] public static extern void XNextEvent(nint display, out XEvent xevent);
+
+    [DllImport("libX11.so.6")] public static extern void XNextEvent(nint display, void* data);
 
     [DllImport("libX11.so.6")] public static extern int XGetWindowAttributes(nint display, nint w, out XWindowAttributes attr);
 

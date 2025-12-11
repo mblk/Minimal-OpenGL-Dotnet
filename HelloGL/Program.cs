@@ -18,9 +18,9 @@ internal unsafe static class Program
         // init platform
 
         var platformOptions = new PlatformOptions();
-        var windowOptions = new WindowOptions(600, 1000, "Catris");
+        var windowOptions = new WindowOptions(600, 1000, "game999");
         
-	using var platform = PlatformFactory.CreatePlatform(platformOptions);
+	    using var platform = PlatformFactory.CreatePlatform(platformOptions);
         using var window = platform.CreateWindow(windowOptions);
 
         var gl = window.GL;
@@ -42,7 +42,7 @@ internal unsafe static class Program
             AssetManager = assetManager,
         });
 
-	sceneManager.RegisterScene("menu", c => new MenuScene(c));
+	    sceneManager.RegisterScene("menu", c => new MenuScene(c));
         sceneManager.RegisterScene("classic", c => new CatrisGameScene(c));
         sceneManager.RegisterScene("test", c => new MyGameScene(c));
 

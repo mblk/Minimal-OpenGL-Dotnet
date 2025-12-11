@@ -279,7 +279,8 @@ internal unsafe class WindowsPlatform : IPlatform
 
         public bool Get(Key key)
         {
-            return _currStates[(int)key];
+            int idx = GetIndex(key);
+            return _currStates[idx];
         }
 
         public bool WasPressed(Key key)
