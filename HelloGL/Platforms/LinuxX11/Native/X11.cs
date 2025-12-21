@@ -4,10 +4,13 @@ namespace HelloGL.Platforms.LinuxX11.Native;
 
 internal unsafe static class X11
 {
-    public const long CWColormap = 1 << 13;
-    public const long CWEventMask = 1 << 11;
+    public enum CreateWindowValueMask : ulong
+    {
+        EventMask = 1L << 11,
+        ColorMap = 1L << 13,
+    }
 
-    public enum EventMask : long
+    public enum EventMask : ulong
     {
         KeyPress = 1L << 0,
         KeyRelease = 1L << 1,
@@ -119,8 +122,6 @@ internal unsafe static class X11
         public int same_screen;
     }
 
-
-
     [DllImport("libX11.so.6")] public static extern nint XOpenDisplay(nint display);
     [DllImport("libX11.so.6")] public static extern int XDefaultScreen(nint display);
     [DllImport("libX11.so.6")] public static extern nint XRootWindow(nint display, int screen);
@@ -128,20 +129,20 @@ internal unsafe static class X11
 
     [DllImport("libX11.so.6")]
     public static extern nint XCreateWindow(
-        nint display, nint parent, int x, int y, int width, int height, int border_width,
-        int depth, int c_class, nint visual, nuint valuemask, ref XSetWindowAttributes attributes);
+        nint display, nint parent,
+        int x, int y,
+        int width, int height,
+        int border_width, int depth,
+        int c_class, nint visual,
+        CreateWindowValueMask valuemask,
+        ref XSetWindowAttributes attributes);
 
     [DllImport("libX11.so.6")] public static extern void XStoreName(nint display, nint window, string window_name);
     [DllImport("libX11.so.6")] public static extern void XMapWindow(nint display, nint window);
+    [DllImport("libX11.so.6")] public static extern int XSync(nint display, bool discard);
     [DllImport("libX11.so.6")] public static extern void XDestroyWindow(nint display, nint window);
     [DllImport("libX11.so.6")] public static extern void XCloseDisplay(nint display);
 
     [DllImport("libX11.so.6")] public static extern int XPending(nint display);
-    //[DllImport("libX11.so.6")] public static extern void XNextEvent(nint display, out XEvent xevent);
-
     [DllImport("libX11.so.6")] public static extern void XNextEvent(nint display, void* data);
-
-    [DllImport("libX11.so.6")] public static extern int XGetWindowAttributes(nint display, nint w, out XWindowAttributes attr);
-
-    [DllImport("libX11.so.6")] public static extern int XSync(nint display, bool discard);
 }

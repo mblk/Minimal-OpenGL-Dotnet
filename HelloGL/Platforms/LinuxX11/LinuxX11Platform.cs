@@ -14,7 +14,10 @@ public unsafe class LinuxX11Platform : IPlatform
 
     public IWindow CreateWindow(WindowOptions options)
     {
-        // 1) X11 Display öffnen
+        //
+        // Open X11 display, screen and window.
+        //
+
         nint display = X11.XOpenDisplay(nint.Zero);
         if (display == nint.Zero)
             throw new Exception("XOpenDisplay failed");
@@ -22,43 +25,51 @@ public unsafe class LinuxX11Platform : IPlatform
         int screen = X11.XDefaultScreen(display);
         nint root = X11.XRootWindow(display, screen);
 
-        // 2) GLX FBConfig wählen (Core 3.3 Ziel)
+        //
+        // Find GLX FBConfig
+        //
+
         var visualAttribs = new int[]
         {
-            GLX.GLX_X_RENDERABLE, 1,
+            GLX.GLX_X_RENDERABLE,  1,
             GLX.GLX_DRAWABLE_TYPE, GLX.GLX_WINDOW_BIT,
             GLX.GLX_RENDER_TYPE,   GLX.GLX_RGBA_BIT,
             GLX.GLX_X_VISUAL_TYPE, GLX.GLX_TRUE_COLOR,
-            GLX.GLX_RED_SIZE,   8,
-            GLX.GLX_GREEN_SIZE, 8,
-            GLX.GLX_BLUE_SIZE,  8,
-            GLX.GLX_ALPHA_SIZE, 8,
-            GLX.GLX_DEPTH_SIZE, 24,
-            GLX.GLX_STENCIL_SIZE, 8,
-            GLX.GLX_DOUBLEBUFFER, 1,
+            GLX.GLX_RED_SIZE,      8,
+            GLX.GLX_GREEN_SIZE,    8,
+            GLX.GLX_BLUE_SIZE,     8,
+            GLX.GLX_ALPHA_SIZE,    8,
+            GLX.GLX_DEPTH_SIZE,    24,
+            GLX.GLX_STENCIL_SIZE,  8,
+            GLX.GLX_DOUBLEBUFFER,  1,
             0
         };
 
-        //int nelements;
-        var fbConfigs = GLX.glXChooseFBConfig(display, screen, visualAttribs, out int nelements);
+        nint fbConfigs = GLX.glXChooseFBConfig(display, screen, visualAttribs, out int nelements);
+        Console.WriteLine($"glXChooseFBConfig returned {nelements} matching FBConfigs");
         if (fbConfigs == nint.Zero || nelements == 0)
-            throw new Exception("glXChooseFBConfig failed.");
+            throw new Exception("glXChooseFBConfig failed");
 
-        Console.WriteLine($"glXChooseFBConfig returned {nelements} matching FBConfigs.");
-
-        // Nimm das erste FBConfig
         nint fbConfig = Marshal.ReadIntPtr(fbConfigs);
+        Console.WriteLine($"Using FBConfig {fbConfig}");
 
-        // 3) VisualInfo besorgen
-        var visInfoPtr = GLX.glXGetVisualFromFBConfig(display, fbConfig);
+        //
+        // Get XVisualInfo for FBConfig
+        //
+
+        nint visInfoPtr = GLX.glXGetVisualFromFBConfig(display, fbConfig);
         if (visInfoPtr == nint.Zero)
-            throw new Exception("glXGetVisualFromFBConfig failed.");
-        var vis = Marshal.PtrToStructure<X11.XVisualInfo>(visInfoPtr);
-
-        // 4) Colormap & Fenster erzeugen
-        var cmap = X11.XCreateColormap(display, root, vis.visual, 0 /*AllocNone*/);
+            throw new Exception("glXGetVisualFromFBConfig failed");
         
-        var swa = new X11.XSetWindowAttributes
+        X11.XVisualInfo vis = Marshal.PtrToStructure<X11.XVisualInfo>(visInfoPtr);
+
+        //
+        // Create X11 window
+        //
+
+        nint cmap = X11.XCreateColormap(display, root, vis.visual, 0 /*AllocNone*/);
+        
+        X11.XSetWindowAttributes swa = new()
         {
             colormap = cmap,
             event_mask = X11.EventMask.Exposure |
@@ -67,7 +78,7 @@ public unsafe class LinuxX11Platform : IPlatform
                          X11.EventMask.StructureNotify
         };
 
-        var window = X11.XCreateWindow(
+        nint window = X11.XCreateWindow(
             display,
             root,
             0,
@@ -78,26 +89,30 @@ public unsafe class LinuxX11Platform : IPlatform
             vis.depth,
             1 /*InputOutput*/,
             vis.visual,
-            (nuint)(X11.CWColormap | X11.CWEventMask),
+            X11.CreateWindowValueMask.ColorMap | X11.CreateWindowValueMask.EventMask,
             ref swa);
         if (window == nint.Zero)
-            throw new Exception("XCreateWindow failed.");
+            throw new Exception("XCreateWindow failed");
 
         X11.XStoreName(display, window, options.Title);
         X11.XMapWindow(display, window);
-
-        // damit die Map-Request auch wirklich verarbeitet ist:
         X11.XSync(display, false);
 
-        // GLXWindow aus *demselben* FBConfig erzeugen
-        var glxWindow = GLX.glXCreateWindow(display, fbConfig, window, nint.Zero);
+        //
+        // Create GLX window
+        //
+
+        nint glxWindow = GLX.glXCreateWindow(display, fbConfig, window, nint.Zero);
         if (glxWindow == nint.Zero)
             throw new Exception("glXCreateWindow failed");
 
-        // 5) GLX 1.3+ prüfen und glXCreateContextAttribsARB laden
+        //
+        // Create GL/GLX Context
+        //
+
         var pCreateCtx = GLX.glXGetProcAddress("glXCreateContextAttribsARB");
         if (pCreateCtx == nint.Zero)
-            throw new Exception("glXCreateContextAttribsARB not available. Treiber/GLX zu alt?");
+            throw new Exception("glXCreateContextAttribsARB not available");
         
         var glXCreateContextAttribsARB = (delegate* unmanaged<nint, nint, nint, int, int*, nint>)pCreateCtx;
 
@@ -111,22 +126,20 @@ public unsafe class LinuxX11Platform : IPlatform
 
         nint glxContext = glXCreateContextAttribsARB(display, fbConfig, nint.Zero, 1, ctxAttribs);        
         if (glxContext == IntPtr.Zero)
-            throw new Exception($"Failed to create GL {GL.MajorVersion}.{GL.MinorVersion} core context.");
-
-        //if (!GLX.glXMakeCurrent(_display, _window, _glxContext))
-        //    throw new Exception("glXMakeCurrent failed.");
-        //if (!GLX.glXMakeCurrent(_display, _glxWindow, _glxContext))
-        //    throw new Exception("glXMakeCurrent failed.");
+            throw new Exception($"Failed to create GL {GL.MajorVersion}.{GL.MinorVersion} core context");
 
         if (!GLX.glXMakeContextCurrent(display, glxWindow, glxWindow, glxContext))
             throw new Exception("glXMakeContextCurrent failed");
 
-        // 6) GL-Funktionen laden
+        //
+        // Load GL functions
+        //
+
         var glx = new GLX();
         var gl = new GL(glx.GetProcAddressWithFallback);
 
-        // 0 = VSync aus
-        // 1 = VSync an
+        // 0 = VSync off
+        // 1 = VSync on
         glx.SwapIntervalEXT(display, glxWindow, options.SwapInterval);
 
         Console.WriteLine($"Setting initial viewport: {options.Width} {options.Height}");

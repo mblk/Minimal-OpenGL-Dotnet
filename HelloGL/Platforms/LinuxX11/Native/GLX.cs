@@ -90,11 +90,4 @@ internal unsafe class GLX
         if (_glXSwapIntervalEXT != null)
             _glXSwapIntervalEXT(display, drawable, interval);
     }
-
-    public static void GetWindowSize(nint display, nint window, out int w, out int h)
-    {
-        X11.XWindowAttributes attr;
-        X11.XGetWindowAttributes(display, window, out attr);
-        w = attr.width; h = attr.height;
-    }
 }
