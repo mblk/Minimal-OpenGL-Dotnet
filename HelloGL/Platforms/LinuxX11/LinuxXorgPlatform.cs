@@ -1,5 +1,7 @@
 ﻿using HelloGL.Engine;
 using HelloGL.Platforms.LinuxX11.Native;
+using HelloGL.Utils;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -194,13 +196,13 @@ public unsafe class LinuxXorgPlatform : IPlatform
             }
         }
 
-        public void HandleInput(X11.XKeyEvent* keyEvent)
+        public void HandleInput(in X11.XKeyEvent keyEvent)
         {
-            bool isPress = keyEvent->type == X11.KeyPress;
-            bool isRelease = keyEvent->type == X11.KeyRelease;
+            bool isPress = keyEvent.type == X11.EventType.KeyPress;
+            bool isRelease = keyEvent.type == X11.EventType.KeyRelease;
 
-            uint keycode = keyEvent->keycode;
-            uint state = keyEvent->state;
+            uint keycode = keyEvent.keycode;
+            uint state = keyEvent.state;
 
             Key? key = MapKeycodeToKey(state, keycode - 8); // offset 8 for "historical reasons"
             if (key is null) return;
@@ -370,85 +372,63 @@ public unsafe class LinuxXorgPlatform : IPlatform
             };
 
             GL = gl;
+
+            // Move to tests later
+            var eventSize1 = Marshal.SizeOf<X11.XEvent>();
+            var eventSize2 = Unsafe.SizeOf<X11.XEvent>();
+            var keySize1 = Marshal.SizeOf<X11.XKeyEvent>();
+            var keySize2 = Unsafe.SizeOf<X11.XKeyEvent>();
+
+            Console.WriteLine($"XEvent sizes {eventSize1} {eventSize2} {keySize1} {keySize2}");
+
+            Debug.Assert(eventSize1 == 192);
+            Debug.Assert(eventSize2 == 192);
+            Debug.Assert(keySize1 == 96);
+            Debug.Assert(keySize2 == 96);
         }
 
         public bool ProcessEvents()
         {
-            const int bufferSize = 256;
-
+            const int bufferSize = 256; // 192 plus a little extra
+            void* eventBuffer = stackalloc byte[bufferSize];
             var running = true;
 
-            void* eventBuffer = stackalloc byte[bufferSize];
-            Span<byte> eventSpan = new Span<byte>(eventBuffer, bufferSize);
-            
             while (X11.XPending(_display) > 0)
-            {    
-                eventSpan.Clear();
+            {
                 X11.XNextEvent(_display, eventBuffer);
+                X11.XEvent* @event = (X11.XEvent*)eventBuffer;
+                Console.WriteLine($"X11 Event: {@event->type}");
 
-                Console.WriteLine("Got X11 event");
-                for (int i=0; i<bufferSize; i++)
+                switch (@event->type)
                 {
-                    if (i % 32 == 0) Console.Write($"[{i:X4}] ");
-                    Console.Write($"{eventSpan[i]:X2} ");
-                    if ((i+1) % 32 == 0) Console.WriteLine();
-                }
-                Console.WriteLine();
-      
-                X11.XEventAny* anyEvent = (X11.XEventAny*)eventBuffer;
-                X11.XKeyEvent* keyEvent = (X11.XKeyEvent*)eventBuffer;
-
-                int eventType = anyEvent->type;
-
-                Console.WriteLine($"AnyEvent: type={anyEvent->type} serial={anyEvent->serial} send_event={anyEvent->send_event} display={anyEvent->display} window={anyEvent->window}");
-
-                switch (eventType)
-                {
-                    case X11.ClientMessage:
+                    case X11.EventType.ClientMessage:
                     {
                         running = false;
                         break;                            
                     }
 
-                    case X11.ConfigureNotify:
+                    case X11.EventType.ConfigureNotify:
                     {
-                        Console.WriteLine($"ConfigureNotify");
-
                         GLX.glXQueryDrawable(_display, _glxWindow, GLX.GLX_WIDTH, out var gw);
                         GLX.glXQueryDrawable(_display, _glxWindow, GLX.GLX_HEIGHT, out var gh);
-                        Console.WriteLine($"GLX drawable size: {gw} x {gh}");
+                        int w = (int)Math.Max(1, gw);
+                        int h = (int)Math.Max(1, gh);
 
-                        GL.Viewport(0, 0, Math.Max(1, (int)gw), Math.Max(1, (int)gh));
-
-                        Size = ((int)gw, (int)gh);
+                        Console.WriteLine($"GLX drawable size: {gw}x{gh} (using {w}x{h})");
+                        GL.Viewport(0, 0, w, h);
+                        Size = (w, h);
                         break;
                     }
                     
-                    case X11.KeyPress:
+                    case X11.EventType.KeyPress:
                     {
-                        Console.WriteLine("KeyPress event");
-
-                        uint state = keyEvent->state;
-                        uint keyCode = keyEvent->keycode;
-
-                        Console.WriteLine($"state={state} keycode={keyCode} {keyCode:X}");
-
-                        _keyboard.HandleInput(keyEvent);
-
+                        _keyboard.HandleInput(@event->key);
                         break;
                     }
                     
-                    case X11.KeyRelease:
+                    case X11.EventType.KeyRelease:
                     {
-                        Console.WriteLine("KeyRelease event");
-
-                        uint state = keyEvent->state;
-                        uint keyCode = keyEvent->keycode;
-
-                        Console.WriteLine($"state={state} keycode={keyCode} {keyCode:X}");
-
-                        _keyboard.HandleInput(keyEvent);
-
+                        _keyboard.HandleInput(@event->key);
                         break;
                     }
                 }

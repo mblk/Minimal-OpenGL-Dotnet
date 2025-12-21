@@ -19,6 +19,14 @@ internal unsafe static class X11
     public const int KeyPress = 2;
     public const int KeyRelease = 3;
 
+    public enum EventType : uint
+    {
+        KeyPress = 2,
+        KeyRelease = 3,
+        ConfigureNotify = 22,
+        ClientMessage = 33,
+    }
+
 
 
     [StructLayout(LayoutKind.Sequential)]
@@ -81,32 +89,40 @@ internal unsafe static class X11
         public nint screen;
     }
 
+    [StructLayout(LayoutKind.Explicit, Size = 192)]
+    public struct XEvent
+    {
+        [FieldOffset(0)] public EventType type;
+        [FieldOffset(0)] public XEventAny any;
+        [FieldOffset(0)] public XKeyEvent key;
+    }
+
     [StructLayout(LayoutKind.Explicit)]
     public struct XEventAny
     {
-        [FieldOffset(0)] public int type;
+        [FieldOffset(0)] public EventType type;
         [FieldOffset(8)] public uint serial;
         [FieldOffset(16)] public int send_event; // bool
         [FieldOffset(24)] public nint display; // pointer
         [FieldOffset(32)] public int window; // id
     }
 
-    [StructLayout(LayoutKind.Explicit)]
+    [StructLayout(LayoutKind.Sequential)]
     public struct XKeyEvent
     {
-        [FieldOffset(0)] public int type;
-        [FieldOffset(8)] public uint serial;
-        [FieldOffset(16)] public int send_event; // bool
-        [FieldOffset(24)] public nint display; // pointer
-        [FieldOffset(32)] public int window; // id
-        [FieldOffset(40)] public int root;
-        [FieldOffset(48)] public int subwindow;
-        [FieldOffset(56)] public int time;
-        [FieldOffset(64)] public int x, y;
-        [FieldOffset(72)] public int x_root, y_root;
-        [FieldOffset(80)] public uint state;
-        [FieldOffset(84)] public uint keycode;
-        [FieldOffset(88)] public int same_screen; // bool 
+        public EventType type;
+        public ulong serial;
+        public int send_event;
+        public nint display;
+        public ulong window;
+        public ulong root;
+        public ulong subwindow;
+        public ulong time;
+        public int x, y;
+        public int x_root, y_root;
+        public uint state;
+        public uint keycode;
+        public int same_screen;
     }
 
 
