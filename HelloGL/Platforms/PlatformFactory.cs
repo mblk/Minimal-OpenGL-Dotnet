@@ -20,7 +20,7 @@ public static class PlatformFactory
             }
             else
             {
-                return new LinuxX11.LinuxXorgPlatform(options);
+                return new LinuxX11.LinuxX11Platform(options);
             }
         }
         

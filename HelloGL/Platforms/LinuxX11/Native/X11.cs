@@ -1,23 +1,19 @@
-﻿using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace HelloGL.Platforms.LinuxX11.Native;
 
 internal unsafe static class X11
 {
-    public const long ExposureMask = 1L << 15;
-    public const long KeyPressMask = 1L << 0;
-    public const long KeyReleaseMask = 1L << 1;
-    public const long StructureNotifyMask = 1L << 17;
-
     public const long CWColormap = 1 << 13;
     public const long CWEventMask = 1 << 11;
 
-    public const int ClientMessage = 33;
-    public const int ConfigureNotify = 22;
-    public const int KeyPress = 2;
-    public const int KeyRelease = 3;
+    public enum EventMask : long
+    {
+        KeyPress = 1L << 0,
+        KeyRelease = 1L << 1,
+        Exposure = 1L << 15,
+        StructureNotify = 1L << 17,
+    }
 
     public enum EventType : uint
     {
@@ -26,8 +22,6 @@ internal unsafe static class X11
         ConfigureNotify = 22,
         ClientMessage = 33,
     }
-
-
 
     [StructLayout(LayoutKind.Sequential)]
     public struct XVisualInfo
@@ -57,7 +51,7 @@ internal unsafe static class X11
         public long backing_planes;
         public long backing_pixel;
         public bool save_under;
-        public long event_mask;
+        public EventMask event_mask;
         public long do_not_propagate_mask;
         public bool override_redirect;
         public nint colormap;

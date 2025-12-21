@@ -1,15 +1,14 @@
-﻿using HelloGL.Engine;
-using HelloGL.Platforms.LinuxX11.Native;
-using HelloGL.Utils;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HelloGL.Engine;
+using HelloGL.Platforms.LinuxX11.Native;
 
 namespace HelloGL.Platforms.LinuxX11;
 
-public unsafe class LinuxXorgPlatform : IPlatform
+public unsafe class LinuxX11Platform : IPlatform
 {
-    public LinuxXorgPlatform(PlatformOptions options)
+    public LinuxX11Platform(PlatformOptions options)
     {
     }
 
@@ -62,10 +61,10 @@ public unsafe class LinuxXorgPlatform : IPlatform
         var swa = new X11.XSetWindowAttributes
         {
             colormap = cmap,
-            event_mask = X11.ExposureMask |
-                         X11.KeyPressMask |
-                         X11.KeyReleaseMask |
-                         X11.StructureNotifyMask
+            event_mask = X11.EventMask.Exposure |
+                         X11.EventMask.KeyPress |
+                         X11.EventMask.KeyRelease |
+                         X11.EventMask.StructureNotify
         };
 
         var window = X11.XCreateWindow(
@@ -212,7 +211,7 @@ public unsafe class LinuxXorgPlatform : IPlatform
 
         private void SetState(Key key, bool isPress)
         {
-            Console.WriteLine($"{key} >> {isPress}");
+            //Console.WriteLine($"{key} >> {isPress}");
 
             _currStates[GetIndex(key)] = isPress;
         }
@@ -397,7 +396,7 @@ public unsafe class LinuxXorgPlatform : IPlatform
             {
                 X11.XNextEvent(_display, eventBuffer);
                 X11.XEvent* @event = (X11.XEvent*)eventBuffer;
-                Console.WriteLine($"X11 Event: {@event->type}");
+                //Console.WriteLine($"X11 Event: {@event->type}");
 
                 switch (@event->type)
                 {
@@ -429,6 +428,12 @@ public unsafe class LinuxXorgPlatform : IPlatform
                     case X11.EventType.KeyRelease:
                     {
                         _keyboard.HandleInput(@event->key);
+                        break;
+                    }
+
+                    default:
+                    {
+                        Console.WriteLine($"Unhandled X11 Event: {@event->type}");
                         break;
                     }
                 }
