@@ -525,9 +525,8 @@ internal unsafe class WindowsPlatform : IPlatform
             };
 
             User32.GetClientSize(windowHandle, out var cw, out var ch);
-            Console.WriteLine($"Setting initial viewport: {cw} {ch}");
-            gl.Viewport(0, 0, cw, ch);
-
+            // Console.WriteLine($"Setting initial viewport: {cw} {ch}");
+            // gl.Viewport(0, 0, cw, ch);
             Size = (cw, ch);
         }
 
@@ -658,7 +657,7 @@ internal unsafe class WindowsPlatform : IPlatform
             }
         }
 
-        private bool TryDequeueResize(out int w, out int h)
+        private bool TryDequeueResize(out int w, out int h) // TODO remove / cleanup
         {
             if (_resizePending)
             {
@@ -691,9 +690,9 @@ internal unsafe class WindowsPlatform : IPlatform
 
             if (TryDequeueResize(out var w, out var h))
             {
-                Console.WriteLine($"ProcessEvents: Resizing to {w} {h}");
+                Console.WriteLine($"ProcessEvents: New size is {w} {h}");
                 Size = (w, h);
-                GL.Viewport(0, 0, Math.Max(1, w), Math.Max(1, h));
+                //GL.Viewport(0, 0, Math.Max(1, w), Math.Max(1, h));
             }
 
             return running;
