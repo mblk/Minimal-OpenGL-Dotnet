@@ -142,8 +142,7 @@ public unsafe class LinuxX11Platform : IPlatform
         // 1 = VSync on
         glx.SwapIntervalEXT(display, glxWindow, options.SwapInterval);
 
-        Console.WriteLine($"Setting initial viewport: {options.Width} {options.Height}");
-        gl.Viewport(0, 0, options.Width, options.Height);
+        //gl.Viewport(0, 0, options.Width, options.Height);
 
         return new Window(display, window, glxWindow, glxContext, gl);
     }
@@ -427,7 +426,7 @@ public unsafe class LinuxX11Platform : IPlatform
                         int h = (int)Math.Max(1, gh);
 
                         Console.WriteLine($"GLX drawable size: {gw}x{gh} (using {w}x{h})");
-                        GL.Viewport(0, 0, w, h);
+                        //GL.Viewport(0, 0, w, h);
                         Size = (w, h);
                         break;
                     }

@@ -79,6 +79,10 @@ internal unsafe static class Program
             // render
             //
 
+            var (windowWidth, windowHeight) = window.Size;
+
+            gl.Viewport(0, 0, windowWidth, windowHeight);
+
             gl.ClearColor(0.07f, 0.08f, 0.12f, 1f);
             gl.Clear(GL.ClearBufferMask.COLOR_BUFFER_BIT);
 
