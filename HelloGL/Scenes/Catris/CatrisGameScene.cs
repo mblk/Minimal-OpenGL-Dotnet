@@ -16,6 +16,10 @@ internal class CatrisGameScene : Scene
     private float _leftTick = 0;
     private float _rightTick = 0;
 
+    // for easings
+    private float _downEaseT = 0;
+    private float _sideEaseT = 0;
+
     private int _highscore = 0;
     private int _score = 0;
     private int _kills = 0;
@@ -87,11 +91,13 @@ internal class CatrisGameScene : Scene
         if (kb.WasPressed(Key.A))
         {
             _game.MovePieceLeft();
+            _sideEaseT = 1.0f;
         }
 
         if (kb.WasPressed(Key.D))
         {
             _game.MovePieceRight();
+            _sideEaseT = -1.0f;
         }
 
         if (kb.Get(Key.A))
@@ -101,6 +107,7 @@ internal class CatrisGameScene : Scene
             {
                 _leftTick = 0;
                 _game.MovePieceLeft();
+                _sideEaseT = 1.0f;
             }
         }
         else
@@ -115,11 +122,28 @@ internal class CatrisGameScene : Scene
             {
                 _rightTick = 0;
                 _game.MovePieceRight();
+                _sideEaseT = -1.0f;
             }
         }
         else
         {
             _rightTick = 0;
+        }
+
+        if (_sideEaseT != 0f)
+        {
+            if (_sideEaseT < 0f)
+            {
+                _sideEaseT += 10f * dt;
+                if (_sideEaseT >= 0f)
+                    _sideEaseT = 0f;
+            }
+            else
+            {
+                _sideEaseT -= 10f * dt;
+                if (_sideEaseT <= 0f)
+                    _sideEaseT = 0f;
+            }
         }
 
         //
@@ -143,6 +167,7 @@ internal class CatrisGameScene : Scene
         var maxDownTick = 1.0f / downRate;
 
         _downTick += dt;
+
         if (_downTick >= maxDownTick)
         {
             _downTick = 0.0f;
@@ -175,6 +200,8 @@ internal class CatrisGameScene : Scene
 
             _downButtonNeedsRelease = moveResult != CatrisGame.MovePieceDownResult.Moved;
         }
+
+        _downEaseT = (_downTick / maxDownTick).Clamp(0f, 1f);
     }
 
     private void ResetScore()
@@ -207,7 +234,7 @@ internal class CatrisGameScene : Scene
         if (s < 0) s = 0;
         if (s > 10) s = 10;
 
-        return (PlaceScoreWithKill << s);
+        return PlaceScoreWithKill << s;
 
         // 1: 100
         // 2: 400
@@ -273,6 +300,11 @@ internal class CatrisGameScene : Scene
         int shapeHeight = shape.GetLength(0);
         int shapeWidth = shape.GetLength(1);
 
+        Vector2 cellOffset = new Vector2(
+            _sideEaseT,
+            -1.0f + Ease.InOutExpo(_downEaseT)
+            );
+
         for (int y = 0; y < shapeHeight; y++)
         {
             for (int x = 0; x < shapeWidth; x++)
@@ -282,16 +314,22 @@ internal class CatrisGameScene : Scene
                     int boardX = _game.CurrentPiece.X + x;
                     int boardY = _game.CurrentPiece.Y + y;
 
-                    RenderBlock(boardX, boardY, new Vector3(1.0f, 0.0f, 0.0f));
+                    RenderBlock(boardX, boardY, new Vector3(1.0f, 0.0f, 0.0f), cellOffset);
                 }
             }
         }
     }
 
-    private void RenderBlock(int x, int y, Vector3 color)
+    private void RenderBlock(int x, int y, Vector3 color, Vector2? cellOffset = null)
     {
         Vector2 cellPos = GetCellPosition(x, y);
         Vector2 cellSize = new Vector2(CellSize, CellSize);
+
+        if (cellOffset.HasValue)
+        {
+            cellPos.X += cellOffset.Value.X * cellSize.X;
+            cellPos.Y += cellOffset.Value.Y * cellSize.Y;
+        }
 
         _renderer.AddRectangle(cellPos, cellSize, color * 0.8f);
         _renderer.AddRectangle(cellPos, cellSize * 0.5f, color);

@@ -24,4 +24,13 @@ public static class MathUtils
     {
         return outA + (value - inA) / (inB - inA) * (outB - outA);
     }
+
+    public static float Clamp(this float value, float min, float max)
+    {
+        if (value < min)
+            return min;
+        if (value > max)
+            return max;
+        return value;
+    }
 }
