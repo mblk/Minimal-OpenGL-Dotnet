@@ -11,13 +11,9 @@ internal class CatrisGameScene : Scene
 
     private readonly CatrisGame _game = new();
 
-    private float _downTick = 0;
+    private float _downProgress = 0;
     private bool _downButtonNeedsRelease = false;
-    private float _leftTick = 0;
-    private float _rightTick = 0;
-
-    // for easings
-    private float _downEaseT = 0;
+    private float _sideBlocked = 0;
     private float _sideEaseT = 0;
 
     private int _highscore = 0;
@@ -88,59 +84,40 @@ internal class CatrisGameScene : Scene
         // left / right
         //
 
-        if (kb.WasPressed(Key.A))
+        if (_sideBlocked == 0f)
         {
-            _game.MovePieceLeft();
-            _sideEaseT = 1.0f;
-        }
+            bool left = kb.Get(Key.A);
+            bool right = kb.Get(Key.D);
 
-        if (kb.WasPressed(Key.D))
-        {
-            _game.MovePieceRight();
-            _sideEaseT = -1.0f;
-        }
-
-        if (kb.Get(Key.A))
-        {
-            _leftTick += dt;
-            if (_leftTick > MaxTickLeftRight)
+            if (left && !right && _game.MovePieceLeft())
             {
-                _leftTick = 0;
-                _game.MovePieceLeft();
                 _sideEaseT = 1.0f;
+                _sideBlocked = MaxTickLeftRight;
             }
-        }
-        else
-        {
-            _leftTick = 0;
-        }
-
-        if (kb.Get(Key.D))
-        {
-            _rightTick += dt;
-            if (_rightTick > MaxTickLeftRight)
+            if (!left && right && _game.MovePieceRight())
             {
-                _rightTick = 0;
-                _game.MovePieceRight();
                 _sideEaseT = -1.0f;
-            }
+                _sideBlocked = MaxTickLeftRight;
+            }    
         }
         else
         {
-            _rightTick = 0;
+            _sideBlocked -= dt;
+            if (_sideBlocked < 0f)
+                _sideBlocked = 0f;
         }
 
-        if (_sideEaseT != 0f)
+        if (_sideEaseT != 0f) // TODO maybe combine blocked+ease ?
         {
             if (_sideEaseT < 0f)
             {
-                _sideEaseT += 10f * dt;
+                _sideEaseT += LeftRightRate * dt;
                 if (_sideEaseT >= 0f)
                     _sideEaseT = 0f;
             }
             else
             {
-                _sideEaseT -= 10f * dt;
+                _sideEaseT -= LeftRightRate * dt;
                 if (_sideEaseT <= 0f)
                     _sideEaseT = 0f;
             }
@@ -164,13 +141,11 @@ internal class CatrisGameScene : Scene
             _downButtonNeedsRelease = false;
         }
 
-        var maxDownTick = 1.0f / downRate;
+        _downProgress += downRate * dt;
 
-        _downTick += dt;
-
-        if (_downTick >= maxDownTick)
+        if (_downProgress >= 1f)
         {
-            _downTick = 0.0f;
+            _downProgress -= 1f;
 
             var moveResult = _game.MovePieceDown(out int killCount);
 
@@ -200,8 +175,6 @@ internal class CatrisGameScene : Scene
 
             _downButtonNeedsRelease = moveResult != CatrisGame.MovePieceDownResult.Moved;
         }
-
-        _downEaseT = (_downTick / maxDownTick).Clamp(0f, 1f);
     }
 
     private void ResetScore()
@@ -301,8 +274,8 @@ internal class CatrisGameScene : Scene
         int shapeWidth = shape.GetLength(1);
 
         Vector2 cellOffset = new Vector2(
-            _sideEaseT,
-            -1.0f + Ease.InOutExpo(_downEaseT)
+            Ease.Mirror(_sideEaseT, Ease.InOutQuad),
+            Ease.InOutExpo(_downProgress) - 1f
             );
 
         for (int y = 0; y < shapeHeight; y++)

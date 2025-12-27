@@ -288,20 +288,26 @@ internal class CatrisGame // Quick and dirty, should clean this up
         return killCount;
     }
 
-    public void MovePieceLeft()
+    public bool MovePieceLeft()
     {
         if (SimulateMove(-1, 0))
         {
             CurrentPiece.X--;
+            return true;
         }
+
+        return false;
     }
 
-    public void MovePieceRight()
+    public bool MovePieceRight()
     {
         if (SimulateMove(1, 0))
         {
             CurrentPiece.X++;
+            return true;
         }
+
+        return false;
     }
 
     public enum MovePieceDownResult
