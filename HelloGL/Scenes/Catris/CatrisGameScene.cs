@@ -311,7 +311,6 @@ internal class CatrisGameScene : Scene
         bool[,] shape = _game.GetCurrentPieceRotatedShape();
         int shapeHeight = shape.GetLength(0);
         int shapeWidth = shape.GetLength(1);
-
         int prevWidth = _prevShapeSize.Item1;
         int prevHeight = _prevShapeSize.Item2;
 
@@ -319,23 +318,14 @@ internal class CatrisGameScene : Scene
 
         Vector3 color = new Vector3(1f, 0f, 0f);
 
-        int rotCenterX = _game.CurrentPiece.X;
-        int rotCenterY = _game.CurrentPiece.Y;
+        // all positions are in map coordinates
+        Vector2 rotCenter = new Vector2(
+            _game.CurrentPiece.X - 0.5f + shapeWidth * 0.5f,
+            _game.CurrentPiece.Y - 0.5f + shapeHeight * 0.5f);
 
-        Vector2 rotCenter = GetCellPosition(rotCenterX, rotCenterY);
-        
-        rotCenter.X += shapeWidth * 0.5f * CellSize;
-        rotCenter.Y += shapeHeight * 0.5f * CellSize;
-
-        rotCenter.X -= CellSize * 0.5f;
-        rotCenter.Y -= CellSize * 0.5f;
-
-        //xxx
-        Vector2 prevCenter = new Vector2(prevWidth * CellSize * 0.5f, prevHeight * CellSize * 0.5f);
-        Vector2 currCenter = new Vector2(shapeWidth * CellSize * 0.5f, shapeHeight * CellSize * 0.5f);
-        Vector2 centerDiff = currCenter - prevCenter;
-
-        centerDiff += new Vector2(_rotateMove.X * CellSize, _rotateMove.Y * CellSize);
+        Vector2 prevCenter = new Vector2(prevWidth * 0.5f, prevHeight * 0.5f);
+        Vector2 currCenter = new Vector2(shapeWidth * 0.5f, shapeHeight * 0.5f);
+        Vector2 centerDiff = currCenter - prevCenter + _rotateMove;
 
         for (int y = 0; y < shapeHeight; y++)
         {
@@ -343,25 +333,24 @@ internal class CatrisGameScene : Scene
             {
                 if (shape[y, x])
                 {
-                    int boardX = _game.CurrentPiece.X + x;
-                    int boardY = _game.CurrentPiece.Y + y;
+                    Vector2 cellPos = new Vector2(
+                        _game.CurrentPiece.X + x,
+                        _game.CurrentPiece.Y + y);
 
-                    Vector2 cellPos = GetCellPosition(boardX, boardY);
+                    cellPos = cellPos.RotateAround(rotCenter, angle);
 
-                    Vector2 v = cellPos - rotCenter;
-                    Vector2 vrot = v.Rotate(angle);
-                    Vector2 cellPosRot = rotCenter + vrot;
+                    cellPos -= centerDiff * MathF.Abs(_rotateEaseT);
 
-                    cellPosRot -= centerDiff * MathF.Abs(_rotateEaseT);
-
-                    cellPosRot.X += Ease.Mirror(_sideEaseT, Ease.InOutQuad) * CellSize;
-                    cellPosRot.Y += (Ease.InOutExpo(_downProgress) - 1f) * CellSize;
+                    cellPos.X += Ease.Mirror(_sideEaseT, Ease.InOutQuad);
+                    cellPos.Y += Ease.InOutExpo(_downProgress) - 1f;
 
                     if (shape[y, x])
                     {
-                        Vector2 cellSize = new Vector2(CellSize, CellSize);
-                        _renderer.AddRotatedRectangle(cellPosRot, cellSize, angle, color * 0.8f);
-                        _renderer.AddRotatedRectangle(cellPosRot, cellSize * 0.5f, angle, color);
+                        Vector2 worldPos = GetWorldPosition(cellPos);
+                        Vector2 worldSize = new Vector2(CellSize, CellSize);
+
+                        _renderer.AddRotatedRectangle(worldPos, worldSize, angle, color * 0.8f);
+                        _renderer.AddRotatedRectangle(worldPos, worldSize * 0.5f, angle, color);
                     }
                 }
             }
@@ -370,18 +359,19 @@ internal class CatrisGameScene : Scene
 
     private void RenderBlock(int x, int y, Vector3 color)
     {
-        Vector2 cellPos = GetCellPosition(x, y);
-        Vector2 cellSize = new Vector2(CellSize, CellSize);
+        Vector2 cellPos = new Vector2(x, y);
+        Vector2 worldPos = GetWorldPosition(cellPos);
+        Vector2 worldSize = new Vector2(CellSize, CellSize);
 
-        _renderer.AddRectangle(cellPos, cellSize, color * 0.8f);
-        _renderer.AddRectangle(cellPos, cellSize * 0.5f, color);
+        _renderer.AddRectangle(worldPos, worldSize, color * 0.8f);
+        _renderer.AddRectangle(worldPos, worldSize * 0.5f, color);
     }
 
-    private static Vector2 GetCellPosition(int x, int y)
+    private static Vector2 GetWorldPosition(Vector2 p)
     {
         return new Vector2(
-            150 + x * CellSize,
-            250 + y * CellSize
+            150 + p.X * CellSize,
+            250 + p.Y * CellSize
         );
     }
 

@@ -46,4 +46,11 @@ public static class MathUtils
             y: input.X * sin + input.Y * cos
         );
     }
+
+    public static Vector2 RotateAround(this Vector2 input, Vector2 center, float angle)
+    {
+        Vector2 v = input - center;
+        Vector2 vrot = v.Rotate(angle);
+        return center + vrot;
+    }
 }
