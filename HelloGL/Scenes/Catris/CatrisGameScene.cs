@@ -11,10 +11,18 @@ internal class CatrisGameScene : Scene
 
     private readonly CatrisGame _game = new();
 
+    // TODO simplify state
     private float _downProgress = 0;
     private bool _downButtonNeedsRelease = false;
+
     private float _sideBlocked = 0;
     private float _sideEaseT = 0;
+
+    private float _rotateEaseT = 0; // -1..0..+1
+
+    private (int,int) _prevShapeSize;
+    
+    private Vector2 _rotateMove = default; // How much the piece was moved when it was rotated
 
     private int _highscore = 0;
     private int _score = 0;
@@ -29,14 +37,16 @@ internal class CatrisGameScene : Scene
     private const float LeftRightRate = 10.0f; // Hz
     private const float MaxTickLeftRight = 1.0f / LeftRightRate;
 
-    private const float DownRateSlow = 1.0f;
+    private const float DownRateSlow = 1.0f; // Hz
     private const float DownRateFast = 15.0f; // Hz
-    private const float DownRateSuperFast = 30.0f; // Hz
+    private const float DownRateSuperFast = 25.0f; // Hz
+
+    private const float RotateCooldown = 0.15f; // s
 
     public CatrisGameScene(SceneContext context)
         : base(context)
     {
-        ResetScore();
+        ResetSceneState();
     }
 
     public override void Load()
@@ -70,19 +80,56 @@ internal class CatrisGameScene : Scene
         }
 #endif
 
-        if (kb.WasPressed(Key.Q))
+        if (_rotateEaseT != 0f)
         {
-            _game.RotatePiece(false);
+            if (_rotateEaseT < 0f)
+            {
+                _rotateEaseT += dt * (1f / RotateCooldown);
+                if (_rotateEaseT > 0f)
+                    _rotateEaseT = 0f;
+            }
+            else
+            {
+                _rotateEaseT -= dt * (1f / RotateCooldown);
+                if (_rotateEaseT < 0f)
+                    _rotateEaseT = 0f;
+            }
         }
 
-        if (kb.WasPressed(Key.E) || kb.WasPressed(Key.W))
+        if (_rotateEaseT == 0f)
         {
-            _game.RotatePiece(true);
+            bool ccw = kb.Get(Key.E);
+            bool cw = kb.Get(Key.Q);
+
+            bool[,] prevShape = _game.GetCurrentPieceRotatedShape();
+            
+            if (cw != ccw && _game.RotatePiece(cw: cw, out Vector2 rotMove))
+            {
+                _rotateEaseT = cw ? 1f : -1f;
+                _rotateMove = rotMove;
+                _prevShapeSize = (prevShape.GetLength(1), prevShape.GetLength(0));
+            }
         }
 
         //
         // left / right
         //
+
+        if (_sideEaseT != 0f) // TODO maybe combine blocked+ease ?
+        {
+            if (_sideEaseT < 0f)
+            {
+                _sideEaseT += LeftRightRate * dt;
+                if (_sideEaseT >= 0f)
+                    _sideEaseT = 0f;
+            }
+            else
+            {
+                _sideEaseT -= LeftRightRate * dt;
+                if (_sideEaseT <= 0f)
+                    _sideEaseT = 0f;
+            }
+        }
 
         if (_sideBlocked == 0f)
         {
@@ -105,22 +152,6 @@ internal class CatrisGameScene : Scene
             _sideBlocked -= dt;
             if (_sideBlocked < 0f)
                 _sideBlocked = 0f;
-        }
-
-        if (_sideEaseT != 0f) // TODO maybe combine blocked+ease ?
-        {
-            if (_sideEaseT < 0f)
-            {
-                _sideEaseT += LeftRightRate * dt;
-                if (_sideEaseT >= 0f)
-                    _sideEaseT = 0f;
-            }
-            else
-            {
-                _sideEaseT -= LeftRightRate * dt;
-                if (_sideEaseT <= 0f)
-                    _sideEaseT = 0f;
-            }
         }
 
         //
@@ -167,7 +198,7 @@ internal class CatrisGameScene : Scene
                     break;
 
                 case CatrisGame.MovePieceDownResult.GameOver:
-                    ResetScore();
+                    ResetSceneState();
                     break;
 
                 default: throw new Exception("unknown result");
@@ -177,8 +208,16 @@ internal class CatrisGameScene : Scene
         }
     }
 
-    private void ResetScore()
+    private void ResetSceneState()
     {
+        _downProgress = 0;
+        _downButtonNeedsRelease = false;
+        _sideBlocked = 0;
+        _sideEaseT = 0;
+        _rotateEaseT = 0;
+        _prevShapeSize = default;
+        _rotateMove = default;
+
         _score = 0;
         _kills = 0;
         _speed = 0;
@@ -273,10 +312,30 @@ internal class CatrisGameScene : Scene
         int shapeHeight = shape.GetLength(0);
         int shapeWidth = shape.GetLength(1);
 
-        Vector2 cellOffset = new Vector2(
-            Ease.Mirror(_sideEaseT, Ease.InOutQuad),
-            Ease.InOutExpo(_downProgress) - 1f
-            );
+        int prevWidth = _prevShapeSize.Item1;
+        int prevHeight = _prevShapeSize.Item2;
+
+        float angle = _rotateEaseT * MathF.PI * 0.5f;
+
+        Vector3 color = new Vector3(1f, 0f, 0f);
+
+        int rotCenterX = _game.CurrentPiece.X;
+        int rotCenterY = _game.CurrentPiece.Y;
+
+        Vector2 rotCenter = GetCellPosition(rotCenterX, rotCenterY);
+        
+        rotCenter.X += shapeWidth * 0.5f * CellSize;
+        rotCenter.Y += shapeHeight * 0.5f * CellSize;
+
+        rotCenter.X -= CellSize * 0.5f;
+        rotCenter.Y -= CellSize * 0.5f;
+
+        //xxx
+        Vector2 prevCenter = new Vector2(prevWidth * CellSize * 0.5f, prevHeight * CellSize * 0.5f);
+        Vector2 currCenter = new Vector2(shapeWidth * CellSize * 0.5f, shapeHeight * CellSize * 0.5f);
+        Vector2 centerDiff = currCenter - prevCenter;
+
+        centerDiff += new Vector2(_rotateMove.X * CellSize, _rotateMove.Y * CellSize);
 
         for (int y = 0; y < shapeHeight; y++)
         {
@@ -287,22 +346,32 @@ internal class CatrisGameScene : Scene
                     int boardX = _game.CurrentPiece.X + x;
                     int boardY = _game.CurrentPiece.Y + y;
 
-                    RenderBlock(boardX, boardY, new Vector3(1.0f, 0.0f, 0.0f), cellOffset);
+                    Vector2 cellPos = GetCellPosition(boardX, boardY);
+
+                    Vector2 v = cellPos - rotCenter;
+                    Vector2 vrot = v.Rotate(angle);
+                    Vector2 cellPosRot = rotCenter + vrot;
+
+                    cellPosRot -= centerDiff * MathF.Abs(_rotateEaseT);
+
+                    cellPosRot.X += Ease.Mirror(_sideEaseT, Ease.InOutQuad) * CellSize;
+                    cellPosRot.Y += (Ease.InOutExpo(_downProgress) - 1f) * CellSize;
+
+                    if (shape[y, x])
+                    {
+                        Vector2 cellSize = new Vector2(CellSize, CellSize);
+                        _renderer.AddRotatedRectangle(cellPosRot, cellSize, angle, color * 0.8f);
+                        _renderer.AddRotatedRectangle(cellPosRot, cellSize * 0.5f, angle, color);
+                    }
                 }
             }
         }
     }
 
-    private void RenderBlock(int x, int y, Vector3 color, Vector2? cellOffset = null)
+    private void RenderBlock(int x, int y, Vector3 color)
     {
         Vector2 cellPos = GetCellPosition(x, y);
         Vector2 cellSize = new Vector2(CellSize, CellSize);
-
-        if (cellOffset.HasValue)
-        {
-            cellPos.X += cellOffset.Value.X * cellSize.X;
-            cellPos.Y += cellOffset.Value.Y * cellSize.Y;
-        }
 
         _renderer.AddRectangle(cellPos, cellSize, color * 0.8f);
         _renderer.AddRectangle(cellPos, cellSize * 0.5f, color);
@@ -322,6 +391,6 @@ internal class CatrisGameScene : Scene
         _renderer.AddText(new Vector2(20, 64), 0.666f, $"Highscore: {_highscore}");
         _renderer.AddText(new Vector2(20, 96), 0.666f, $"Speed: {_speed}");
         _renderer.AddText(new Vector2(20, 128), 0.666f, $"Kills: {_kills}");
-        _renderer.AddText(new Vector2(50, height - 50), 0.666f, $"Move: A/S/D        Rotate: Q/W/E");
+        _renderer.AddText(new Vector2(50, height - 50), 0.666f, $"Move: A/S/D        Rotate: Q/E");
     }
 }

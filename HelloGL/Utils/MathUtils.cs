@@ -1,4 +1,6 @@
-﻿namespace HelloGL.Utils;
+﻿using System.Numerics;
+
+namespace HelloGL.Utils;
 
 public static class MathUtils
 {
@@ -32,5 +34,16 @@ public static class MathUtils
         if (value > max)
             return max;
         return value;
+    }
+
+    public static Vector2 Rotate(this Vector2 input, float angle)
+    {
+        float sin = MathF.Sin(angle);
+        float cos = MathF.Cos(angle);
+
+        return new Vector2(
+            x: input.X * cos - input.Y * sin,
+            y: input.X * sin + input.Y * cos
+        );
     }
 }

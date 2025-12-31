@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using HelloGL.Utils;
 
 namespace HelloGL.Engine;
 
@@ -93,6 +94,24 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
         Vector2 br = new(center.X + halfSize.X, center.Y + halfSize.Y);
         Vector2 bl = new(center.X - halfSize.X, center.Y + halfSize.Y);
 
+        _vertexBuffer.Add(new VertexPC { Position = bl, Color = color });
+        _vertexBuffer.Add(new VertexPC { Position = br, Color = color });
+        _vertexBuffer.Add(new VertexPC { Position = tr, Color = color });
+
+        _vertexBuffer.Add(new VertexPC { Position = bl, Color = color });
+        _vertexBuffer.Add(new VertexPC { Position = tr, Color = color });
+        _vertexBuffer.Add(new VertexPC { Position = tl, Color = color });
+    }
+
+    public void AddRotatedRectangle(Vector2 center, Vector2 size, float angle, Vector3 color)
+    {
+        Vector2 halfSize = size * 0.5f;
+
+        Vector2 tl = center + new Vector2(-halfSize.X, -halfSize.Y).Rotate(angle);
+        Vector2 tr = center + new Vector2( halfSize.X, -halfSize.Y).Rotate(angle);
+        Vector2 br = center + new Vector2( halfSize.X,  halfSize.Y).Rotate(angle);
+        Vector2 bl = center + new Vector2(-halfSize.X,  halfSize.Y).Rotate(angle);
+        
         _vertexBuffer.Add(new VertexPC { Position = bl, Color = color });
         _vertexBuffer.Add(new VertexPC { Position = br, Color = color });
         _vertexBuffer.Add(new VertexPC { Position = tr, Color = color });

@@ -1,6 +1,7 @@
 ﻿using HelloGL.Utils;
 using System.Collections.Frozen;
 using System.Diagnostics;
+using System.Numerics;
 
 namespace HelloGL.Scenes.Catris;
 
@@ -108,7 +109,7 @@ internal class CatrisGame // Quick and dirty, should clean this up
                 return result;
             }
 
-            case Rotation.Deg90:
+            case Rotation.Deg270:
             {
                 var result = new bool[width, height];
 
@@ -118,7 +119,7 @@ internal class CatrisGame // Quick and dirty, should clean this up
                 return result;
             }
 
-            case Rotation.Deg270:
+            case Rotation.Deg90:
             {
                 var result = new bool[width, height];
                 for (int y = 0; y < height; y++) // source index
@@ -343,7 +344,7 @@ internal class CatrisGame // Quick and dirty, should clean this up
         }
     }
 
-    public void RotatePiece(bool cw)
+    public bool RotatePiece(bool cw, out Vector2 move)
     {
         var oldRotation = CurrentPiece.Rotation;
         var newRotation = CurrentPiece.Rotation.Next(cw ? 1 : -1);
@@ -351,15 +352,15 @@ internal class CatrisGame // Quick and dirty, should clean this up
         var oldShape = GetShape(CurrentPiece.Type, oldRotation);
         var newShape = GetShape(CurrentPiece.Type, newRotation);
 
-        var widthChange = newShape.GetLength(1) - oldShape.GetLength(1);
-        var heightChange = newShape.GetLength(0) - oldShape.GetLength(0);
+        int widthChange = newShape.GetLength(1) - oldShape.GetLength(1);
+        int heightChange = newShape.GetLength(0) - oldShape.GetLength(0);
 
         // rotate around center of mass
-        var moveX = -(widthChange / 2);
-        var moveY = -(heightChange / 2);
+        int moveX = -(widthChange / 2);
+        int moveY = -(heightChange / 2);
 
-        var newPosX = CurrentPiece.X + moveX;
-        var newPosY = CurrentPiece.Y + moveY;
+        int newPosX = CurrentPiece.X + moveX;
+        int newPosY = CurrentPiece.Y + moveY;
 
         // check bounds
         int newShapeHeight = newShape.GetLength(0);
@@ -373,11 +374,15 @@ internal class CatrisGame // Quick and dirty, should clean this up
         if (!SimulateMove(moveX, moveY, cw ? 1 : -1))
         {
             Console.WriteLine($"Rotation blocked");
-            return;
+            move = default;
+            return false;
         }
 
         CurrentPiece.X += moveX;
         CurrentPiece.Y += moveY;
         CurrentPiece.Rotation = newRotation;
+
+        move = new Vector2(moveX, moveY);
+        return true;
     }
 }
