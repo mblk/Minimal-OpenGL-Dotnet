@@ -158,55 +158,72 @@ internal class CatrisGameScene : Scene
         // down
         //
 
-        var downRate = GetDownRateFromSpeed(_speed);
-
-        if (kb.Get(Key.S))
+        if (kb.WasPressed(Key.Space))
         {
-            if (!_downButtonNeedsRelease && downRate < DownRateSuperFast)
-            {
-                downRate = DownRateSuperFast;
-            }
+            MovePieceDown(true);
+            _downProgress = 0f;
         }
         else
         {
-            _downButtonNeedsRelease = false;
-        }
+            var downRate = GetDownRateFromSpeed(_speed);
 
-        _downProgress += downRate * dt;
-
-        if (_downProgress >= 1f)
-        {
-            _downProgress -= 1f;
-
-            var moveResult = _game.MovePieceDown(out int killCount);
-
-            switch (moveResult)
+            if (kb.Get(Key.S))
             {
-                case CatrisGame.MovePieceDownResult.Moved:
-                    break;
-
-                case CatrisGame.MovePieceDownResult.Placed:
-                    if (killCount > 0)
-                    {
-                        IncreaseScore(GetRowKillScore(killCount));
-                        IncreaseKills(killCount);
-                    }
-                    else
-                    {
-                        IncreaseScore(PlaceScoreWithoutKill);
-                    }
-                    break;
-
-                case CatrisGame.MovePieceDownResult.GameOver:
-                    ResetSceneState();
-                    break;
-
-                default: throw new Exception("unknown result");
+                if (!_downButtonNeedsRelease && downRate < DownRateSuperFast)
+                {
+                    downRate = DownRateSuperFast;
+                }
+            }
+            else
+            {
+                _downButtonNeedsRelease = false;
             }
 
-            _downButtonNeedsRelease = moveResult != CatrisGame.MovePieceDownResult.Moved;
+            _downProgress += downRate * dt;
+
+            if (_downProgress >= 1f)
+            {
+                _downProgress -= 1f;
+                MovePieceDown(false);
+            }
         }
+
+        // TODO call only if game state changed
+        _landingSpotDy = _game.SimulateLandingSpot();
     }
+
+    private void MovePieceDown(bool allTheWay)
+    {
+        var moveResult = _game.MovePieceDown(allTheWay, out int killCount);
+
+        switch (moveResult)
+        {
+            case CatrisGame.MovePieceDownResult.Moved:
+                break;
+
+            case CatrisGame.MovePieceDownResult.Placed:
+                if (killCount > 0)
+                {
+                    IncreaseScore(GetRowKillScore(killCount));
+                    IncreaseKills(killCount);
+                }
+                else
+                {
+                    IncreaseScore(PlaceScoreWithoutKill);
+                }
+                break;
+
+            case CatrisGame.MovePieceDownResult.GameOver:
+                ResetSceneState();
+                break;
+
+            default: throw new Exception("unknown result");
+        }
+
+        _downButtonNeedsRelease = moveResult != CatrisGame.MovePieceDownResult.Moved;
+    }
+
+    private int _landingSpotDy = 0;
 
     private void ResetSceneState()
     {
@@ -270,6 +287,7 @@ internal class CatrisGameScene : Scene
 
         RenderBorder();
         RenderBoard();
+        RenderLandingSpot();
         RenderCurrentPiece();
         RenderUI(height);
 
@@ -301,6 +319,36 @@ internal class CatrisGameScene : Scene
                 if (_game.Cells[y, x].IsOccupied)
                 {
                     RenderBlock(x, y, new Vector3(0.5f, 0.5f, 0.5f));
+                }
+            }
+        }
+    }
+
+    private void RenderLandingSpot()
+    {
+        bool[,] shape = _game.GetCurrentPieceRotatedShape();
+        int shapeHeight = shape.GetLength(0);
+        int shapeWidth = shape.GetLength(1);
+        
+        Vector3 color = new Vector3(0.2f, 0.1f, 0.1f);
+
+        for (int y = 0; y < shapeHeight; y++)
+        {
+            for (int x = 0; x < shapeWidth; x++)
+            {
+                if (shape[y, x])
+                {
+                    Vector2 cellPos = new Vector2(
+                        _game.CurrentPiece.X + x,
+                        _game.CurrentPiece.Y + y + _landingSpotDy);
+
+                    if (shape[y, x])
+                    {
+                        Vector2 worldPos = GetWorldPosition(cellPos);
+                        Vector2 worldSize = new Vector2(CellSize, CellSize);
+
+                        _renderer.AddRectangle(worldPos, worldSize, color);
+                    }
                 }
             }
         }

@@ -1,6 +1,7 @@
 ﻿using HelloGL.Utils;
 using System.Collections.Frozen;
 using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Numerics;
 
 namespace HelloGL.Scenes.Catris;
@@ -318,30 +319,37 @@ internal class CatrisGame // Quick and dirty, should clean this up
         GameOver,
     }
 
-    public MovePieceDownResult MovePieceDown(out int killCount)
+    public MovePieceDownResult MovePieceDown(bool allTheWay, out int killCount)
     {
         killCount = 0;
 
-        if (SimulateMove(0, 1))
+        if (allTheWay)
+        {
+            CurrentPiece.Y += SimulateLandingSpot();
+        }
+        else if (SimulateMove(0, 1))
         {
             CurrentPiece.Y++;
-
             return MovePieceDownResult.Moved;
         }
-        else
-        {
-            PlacePiece();
-            killCount = KillFullLines();
-            NextPiece();
-            if (!SimulateMove(0, 0))
-            {
-                Console.WriteLine("Game over");
-                Reset();
-                return MovePieceDownResult.GameOver;
-            }
 
-            return MovePieceDownResult.Placed;
+        if (!SimulateMove(0, 0))
+        {
+            throw new Exception("kaputt");
         }
+
+        PlacePiece();
+        killCount = KillFullLines();
+        NextPiece();
+        
+        if (!SimulateMove(0, 0))
+        {
+            Console.WriteLine("Game over");
+            Reset();
+            return MovePieceDownResult.GameOver;
+        }
+
+        return MovePieceDownResult.Placed;
     }
 
     public bool RotatePiece(bool cw, out Vector2 move)
@@ -384,5 +392,24 @@ internal class CatrisGame // Quick and dirty, should clean this up
 
         move = new Vector2(moveX, moveY);
         return true;
+    }
+
+    public int SimulateLandingSpot()
+    {
+        int dy = 0;
+
+        while (true)
+        {
+            if (SimulateMove(0, dy + 1, 0))
+            {
+                dy++;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return dy;
     }
 }
