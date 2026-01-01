@@ -1,16 +1,19 @@
 ﻿using HelloGL.Utils;
 using System.Collections.Frozen;
 using System.Diagnostics;
-using System.Linq.Expressions;
 using System.Numerics;
 
 namespace HelloGL.Scenes.Catris;
 
 internal class CatrisGame // Quick and dirty, should clean this up
 {
+    // TODO make piece defs dynamic?
+
     public enum PieceType
     {
-        I, O, T, S, Z, J, L
+        I, O, T, S, Z, J, L,
+
+        X,
     }
 
     public enum Rotation
@@ -70,7 +73,9 @@ internal class CatrisGame // Quick and dirty, should clean this up
         { PieceType.S, new bool[,] { { false, true, true }, { true, true, false } } },
         { PieceType.Z, new bool[,] { { true, true, false }, { false, true, true } } },
         { PieceType.J, new bool[,] { { true, false, false }, { true, true, true } } },
-        { PieceType.L, new bool[,] { { false, false, true }, { true, true, true } } }
+        { PieceType.L, new bool[,] { { false, false, true }, { true, true, true } } },
+
+        { PieceType.X, new bool[,] { { false, true, false }, { true, true, true }, { false, true, false } } },
     }.ToFrozenDictionary();
 
     private static readonly IReadOnlyDictionary<(PieceType, Rotation), bool[,]> _rotatedShapes;
@@ -341,7 +346,7 @@ internal class CatrisGame // Quick and dirty, should clean this up
         PlacePiece();
         killCount = KillFullLines();
         NextPiece();
-        
+
         if (!SimulateMove(0, 0))
         {
             Console.WriteLine("Game over");
