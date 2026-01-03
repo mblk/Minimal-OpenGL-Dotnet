@@ -11,6 +11,8 @@ internal class CatrisGameScene : Scene
 
     private readonly CatrisGame _game = new();
 
+
+
     // TODO simplify state
     private float _downProgress = 0;
     private bool _downButtonNeedsRelease = false;
@@ -24,12 +26,18 @@ internal class CatrisGameScene : Scene
     
     private Vector2 _rotateMove = default; // How much the piece was moved when it was rotated
 
+    private int _landingSpotDy = 0;
+
     private int _highscore = 0;
     private int _score = 0;
     private int _kills = 0;
     private int _speed = 0;
 
-    private const int CellSize = 30;
+
+
+
+    private const float WorldWidth = CatrisGame.Height + 5f;
+    private const float WorldHeight = CatrisGame.Height + 5f;
 
     private const int PlaceScoreWithoutKill = 5;
     private const int PlaceScoreWithKill = 100;
@@ -42,6 +50,8 @@ internal class CatrisGameScene : Scene
     private const float DownRateSuperFast = 25.0f; // Hz
 
     private const float RotateCooldown = 0.15f; // s
+
+
 
     public CatrisGameScene(SceneContext context)
         : base(context)
@@ -223,8 +233,6 @@ internal class CatrisGameScene : Scene
         _downButtonNeedsRelease = moveResult != CatrisGame.MovePieceDownResult.Moved;
     }
 
-    private int _landingSpotDy = 0;
-
     private void ResetSceneState()
     {
         _downProgress = 0;
@@ -234,6 +242,7 @@ internal class CatrisGameScene : Scene
         _rotateEaseT = 0;
         _prevShapeSize = default;
         _rotateMove = default;
+        _landingSpotDy = 0;
 
         _score = 0;
         _kills = 0;
@@ -278,18 +287,32 @@ internal class CatrisGameScene : Scene
 
     public override void Render(RenderContext context)
     {
-        var (width, height) = context.WindowSize;
+        var (windowWidth, windowHeight) = context.WindowSize;
 
-        var mOrthoProj = Matrix4x4.CreateOrthographicOffCenter(0, width, height, 0, -1, 1);
+        float scale = MathF.Min(windowWidth / WorldWidth, windowHeight / WorldHeight);
+        float viewportW = WorldWidth * scale;
+        float viewportH = WorldHeight * scale;
+        float viewportX = (windowWidth - viewportW) / 2f;
+        float viewportY = (windowHeight - viewportH) / 2f;
+
+        var gl = AssetManager.GL;
+        gl.Viewport((int)viewportX, (int)viewportY, (int)viewportW, (int)viewportH); // TODO rounding issues?
+
+        var mOrthoProj = Matrix4x4.CreateOrthographicOffCenter(0, WorldWidth, WorldHeight, 0, -1, 1);
         var mModel = Matrix4x4.Identity;
         var mView = Matrix4x4.Identity;
         var mvp = mModel * mView * mOrthoProj;
+
+        _renderer.AddRectangle(
+            new Vector2(WorldWidth * 0.5f, WorldHeight * 0.5f),
+            new Vector2(WorldWidth, WorldHeight),
+            new Vector3(0.1f, 0.1f, 0.1f));
 
         RenderBorder();
         RenderBoard();
         RenderLandingSpot();
         RenderCurrentPiece();
-        RenderUI(height);
+        RenderUI();
 
         _renderer.Render(mvp);
     }
@@ -345,7 +368,7 @@ internal class CatrisGameScene : Scene
                     if (shape[y, x])
                     {
                         Vector2 worldPos = GetWorldPosition(cellPos);
-                        Vector2 worldSize = new Vector2(CellSize, CellSize);
+                        Vector2 worldSize = new Vector2(1f, 1f);
 
                         _renderer.AddRectangle(worldPos, worldSize, color);
                     }
@@ -395,7 +418,7 @@ internal class CatrisGameScene : Scene
                     if (shape[y, x])
                     {
                         Vector2 worldPos = GetWorldPosition(cellPos);
-                        Vector2 worldSize = new Vector2(CellSize, CellSize);
+                        Vector2 worldSize = new Vector2(1f, 1f);
 
                         _renderer.AddRotatedRectangle(worldPos, worldSize, angle, color * 0.8f);
                         _renderer.AddRotatedRectangle(worldPos, worldSize * 0.5f, angle, color);
@@ -409,7 +432,7 @@ internal class CatrisGameScene : Scene
     {
         Vector2 cellPos = new Vector2(x, y);
         Vector2 worldPos = GetWorldPosition(cellPos);
-        Vector2 worldSize = new Vector2(CellSize, CellSize);
+        Vector2 worldSize = new Vector2(1f, 1f);
 
         _renderer.AddRectangle(worldPos, worldSize, color * 0.8f);
         _renderer.AddRectangle(worldPos, worldSize * 0.5f, color);
@@ -417,18 +440,22 @@ internal class CatrisGameScene : Scene
 
     private static Vector2 GetWorldPosition(Vector2 p)
     {
-        return new Vector2(
-            150 + p.X * CellSize,
-            250 + p.Y * CellSize
-        );
+        const float xoff = WorldWidth * 0.5f - CatrisGame.Width * 0.5f + 0.5f;
+        const float yoff = WorldHeight * 0.5f - CatrisGame.Height * 0.5f + 0.5f;
+
+        return p + new Vector2(xoff, yoff);
     }
 
-    private void RenderUI(int height)
+    private void RenderUI()
     {
-        _renderer.AddText(new Vector2(20, 0), 1.0f, $"Score: {_score}");
-        _renderer.AddText(new Vector2(20, 64), 0.666f, $"Highscore: {_highscore}");
-        _renderer.AddText(new Vector2(20, 96), 0.666f, $"Speed: {_speed}");
-        _renderer.AddText(new Vector2(20, 128), 0.666f, $"Kills: {_kills}");
-        _renderer.AddText(new Vector2(50, height - 50), 0.666f, $"Move: A/S/D        Rotate: Q/E");
+        const float scale = 1f / 64f;
+
+        _renderer.AddText(new Vector2(0, 0), scale, $"Score: {_score}");
+        _renderer.AddText(new Vector2(0, 1), scale, $"Highscore: {_highscore}");
+        _renderer.AddText(new Vector2(0, 2), scale, $"Speed: {_speed}");
+        _renderer.AddText(new Vector2(0, 3), scale, $"Kills: {_kills}");
+        _renderer.AddText(new Vector2(0, WorldHeight - 3), scale, $"Move: A/S/D");
+        _renderer.AddText(new Vector2(0, WorldHeight - 2), scale, $"Place: Space");
+        _renderer.AddText(new Vector2(0, WorldHeight - 1), scale, $"Rotate: Q/E");
     }
 }

@@ -8,7 +8,7 @@ using System.Diagnostics;
 
 namespace HelloGL;
 
-internal unsafe static class Program
+internal static class Program
 {
     [STAThread]
     private static void Main(string[] args)
@@ -18,7 +18,7 @@ internal unsafe static class Program
         // init platform
 
         var platformOptions = new PlatformOptions();
-        var windowOptions = new WindowOptions(600, 1000, "game999", SwapInterval: 1);
+        var windowOptions = new WindowOptions(1000, 1000, "game999", SwapInterval: 1);
         
 	    using var platform = PlatformFactory.CreatePlatform(platformOptions);
         using var window = platform.CreateWindow(windowOptions);
@@ -83,7 +83,7 @@ internal unsafe static class Program
 
             gl.Viewport(0, 0, windowWidth, windowHeight);
 
-            gl.ClearColor(0.07f, 0.08f, 0.12f, 1f);
+            gl.ClearColor(0f, 0f, 0f, 1f);
             gl.Clear(GL.ClearBufferMask.COLOR_BUFFER_BIT);
 
             sceneManager.Render(new RenderContext()

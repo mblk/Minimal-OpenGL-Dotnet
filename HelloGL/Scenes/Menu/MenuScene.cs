@@ -82,19 +82,37 @@ internal class MenuScene : Scene
 
     public override void Render(RenderContext context)
     {
-        var (width, height) = context.WindowSize;
+        const float WorldWidth = 10f;
+        const float WorldHeight = 10f;
 
-        var mOrthoProj = Matrix4x4.CreateOrthographicOffCenter(0, width, height, 0, -1, 1);
+        var (windowWidth, windowHeight) = context.WindowSize;
+
+        float scale = MathF.Min(windowWidth / WorldWidth, windowHeight / WorldHeight);
+        float viewportW = WorldWidth * scale;
+        float viewportH = WorldHeight * scale;
+        float viewportX = (windowWidth - viewportW) / 2f;
+        float viewportY = (windowHeight - viewportH) / 2f;
+
+        var gl = AssetManager.GL;
+        gl.Viewport((int)viewportX, (int)viewportY, (int)viewportW, (int)viewportH); // TODO rounding issues?
+
+        var mOrthoProj = Matrix4x4.CreateOrthographicOffCenter(0, WorldWidth, WorldHeight, 0, -1, 1);
         var mModel = Matrix4x4.Identity;
         var mView = Matrix4x4.Identity;
         var mvp = mModel * mView * mOrthoProj;
 
+        _renderer.AddRectangle(
+            new Vector2(WorldWidth * 0.5f, WorldHeight * 0.5f),
+            new Vector2(WorldWidth, WorldHeight),
+            new Vector3(0.1f, 0.1f, 0.1f));
 
-        _renderer.AddText(new Vector2(150, 200), 2.0f, "Hello!");
+        const float textScale = 1f / 64f;
 
-        _renderer.AddText(new Vector2(150, 400), 1.0f, $"1: Classic {(_selected == 0 ? "<" : "")}");
-        _renderer.AddText(new Vector2(150, 500), 1.0f, $"2: Test scene {(_selected == 1 ? "<" : "")}");
-        _renderer.AddText(new Vector2(150, 600), 1.0f, $"3: Exit {(_selected == 2 ? "<" : "")}");
+        _renderer.AddText(new Vector2(1, 1), textScale, "Hello!");
+
+        _renderer.AddText(new Vector2(1, 3), textScale, $"1: Classic {(_selected == 0 ? "<" : "")}");
+        _renderer.AddText(new Vector2(1, 4), textScale, $"2: Test scene {(_selected == 1 ? "<" : "")}");
+        _renderer.AddText(new Vector2(1, 5), textScale, $"3: Exit {(_selected == 2 ? "<" : "")}");
 
         _renderer.Render(mvp);
     }

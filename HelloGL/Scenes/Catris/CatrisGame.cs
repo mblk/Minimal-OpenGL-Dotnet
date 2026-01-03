@@ -141,8 +141,8 @@ internal class CatrisGame // Quick and dirty, should clean this up
         public bool IsOccupied;
     }
 
-    public const int Width = 10;
-    public const int Height = 20;
+    public const int Width = 13;
+    public const int Height = 26;
 
     public Cell[,] Cells { get; } = new Cell[Height, Width];
 
