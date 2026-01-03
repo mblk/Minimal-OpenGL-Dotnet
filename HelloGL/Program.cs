@@ -18,7 +18,7 @@ internal static class Program
         // init platform
 
         var platformOptions = new PlatformOptions();
-        var windowOptions = new WindowOptions(1000, 1000, "game999", SwapInterval: 1);
+        var windowOptions = new WindowOptions(800, 800, "game999", SwapInterval: 1);
         
 	    using var platform = PlatformFactory.CreatePlatform(platformOptions);
         using var window = platform.CreateWindow(windowOptions);

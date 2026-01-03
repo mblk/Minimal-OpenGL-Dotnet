@@ -37,6 +37,8 @@ internal class CatrisGame // Quick and dirty, should clean this up
         private readonly Random _random = new();
         private readonly Queue<PieceType> _bag = [];
 
+        public IEnumerable<PieceType> Next => _bag;
+
         public PieceGenerator()
         {
         }
@@ -149,6 +151,9 @@ internal class CatrisGame // Quick and dirty, should clean this up
     public Piece CurrentPiece { get; private set; } = null!;
 
     private readonly PieceGenerator _pieceGenerator = new();
+
+    public IEnumerable<PieceType> NextPieces => _pieceGenerator.Next;
+
 
     public CatrisGame()
     {

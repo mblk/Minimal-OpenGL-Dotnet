@@ -312,6 +312,7 @@ internal class CatrisGameScene : Scene
         RenderBoard();
         RenderLandingSpot();
         RenderCurrentPiece();
+        RenderNextPieces();
         RenderUI();
 
         _renderer.Render(mvp);
@@ -444,6 +445,19 @@ internal class CatrisGameScene : Scene
         const float yoff = WorldHeight * 0.5f - CatrisGame.Height * 0.5f + 0.5f;
 
         return p + new Vector2(xoff, yoff);
+    }
+
+    private void RenderNextPieces()
+    {
+        const float scale = 1f / 64f;
+
+        int y = 5;
+
+        foreach (var next in _game.NextPieces)
+        {
+            _renderer.AddText(new Vector2(WorldWidth - 5, y), scale, $"{next}");
+            y++;
+        }
     }
 
     private void RenderUI()
