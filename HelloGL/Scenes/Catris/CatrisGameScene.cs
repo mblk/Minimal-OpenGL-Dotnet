@@ -1,5 +1,6 @@
 ﻿using HelloGL.Engine;
 using HelloGL.Platforms;
+using HelloGL.Platforms.LinuxX11.Native;
 using HelloGL.Utils;
 using System.Numerics;
 
@@ -9,7 +10,9 @@ internal class CatrisGameScene : Scene
 {
     private DynamicGeometryRenderer2D _renderer = null!;
 
-    private readonly CatrisGame _game = new();
+    private IReadOnlyList<PieceDef> _pieces = null!;
+
+    private CatrisGame _game = null!;
 
 
 
@@ -62,6 +65,10 @@ internal class CatrisGameScene : Scene
     public override void Load()
     {
         _renderer = new DynamicGeometryRenderer2D(AssetManager);
+
+        _pieces = new PiecesLoader(AssetManager).Load().ToArray();
+
+        _game = new CatrisGame(_pieces);
     }
 
     public override void Unload()
@@ -451,13 +458,37 @@ internal class CatrisGameScene : Scene
     {
         const float scale = 1f / 64f;
 
-        int y = 5;
+        _renderer.AddText(new Vector2(WorldWidth - 6, 1), scale, "Next:");
+
+        float y = 3f;
 
         foreach (var next in _game.NextPieces)
         {
-            _renderer.AddText(new Vector2(WorldWidth - 5, y), scale, $"{next}");
-            y++;
+            var p = new Vector2(WorldWidth - 5, y);
+
+            y += RenderNextPiece(p, next);
         }
+    }
+
+    private float RenderNextPiece(Vector2 position, PieceDef pieceDef)
+    {
+        var s = new Vector2(0.5f, 0.5f);
+        var c = new Vector3(0.5f, 0.5f, 0.5f);
+
+        for (int y=0; y<pieceDef.Height; y++)
+        {
+            for (int x=0; x<pieceDef.Width; x++)
+            {
+                if (!pieceDef.Data[y, x])
+                    continue;
+
+                var p = position + new Vector2(x * s.X, y * s.Y);
+                
+                _renderer.AddRectangle(p, s, c);
+            }
+        }
+
+        return (pieceDef.Height + 1) * s.Y;
     }
 
     private void RenderUI()

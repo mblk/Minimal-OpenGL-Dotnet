@@ -5,9 +5,8 @@ namespace HelloGL.Engine;
 public interface IAssetReader
 {
     string GetAssetPath(AssetType assetType, string assetName);
-
     string ReadFileAsString(string assetPath);
-
+    string[] ReadFileAsLines(string assetPath);
     byte[] ReadFileAsBytes(string assetPath);
 }
 
@@ -16,6 +15,8 @@ public interface IAssetManager
     Shader LoadShader(string name);
     Texture LoadTexture(string name);
     Font LoadFont(string name);
+
+    string[] LoadDataFile(string name);
 }
 
 
@@ -116,6 +117,15 @@ public class AssetManager : IDisposable, IAssetManager
         return font;
     }
 
+    public string[] LoadDataFile(string name)
+    {
+        string path = _reader.GetAssetPath(AssetType.Data, name);
+
+        string[] lines = _reader.ReadFileAsLines(path);
+
+        return lines;
+    }
+
     public bool ReloadAsset(Asset asset)
     {
         try
@@ -190,6 +200,7 @@ public class AssetManager : IDisposable, IAssetManager
         AssetType.Texture => "Textures",
         AssetType.Font => "Fonts",
         AssetType.Model => "Models",
+        AssetType.Data => "Data",
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
     };
 
@@ -219,6 +230,15 @@ public class AssetManager : IDisposable, IAssetManager
             return File.ReadAllText(fileInfo.FullName);
         }
 
+        public string[] ReadFileAsLines(string assetPath)
+        {
+            var fileInfo = new FileInfo(assetPath);
+            if (!fileInfo.Exists)
+                throw new FileNotFoundException($"Asset file does not exist: {fileInfo.FullName}");
+
+            return File.ReadAllLines(fileInfo.FullName);
+        }
+
         public byte[] ReadFileAsBytes(string assetPath)
         {
             var fileInfo = new FileInfo(assetPath);
@@ -241,12 +261,17 @@ public class AssetManager : IDisposable, IAssetManager
             throw new NotImplementedException();
         }
 
-        public byte[] ReadFileAsBytes(string assetPath)
+        public string ReadFileAsString(string assetPath)
         {
             throw new NotImplementedException();
         }
 
-        public string ReadFileAsString(string assetPath)
+        public string[] ReadFileAsLines(string assetPath)
+        {
+            throw new NotImplementedException();
+        }
+
+        public byte[] ReadFileAsBytes(string assetPath)
         {
             throw new NotImplementedException();
         }

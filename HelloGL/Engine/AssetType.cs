@@ -6,4 +6,5 @@ public enum AssetType
     Texture,
     Font,
     Model,
+    Data,
 }

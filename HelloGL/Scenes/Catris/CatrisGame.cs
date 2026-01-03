@@ -1,21 +1,153 @@
-﻿using HelloGL.Utils;
+﻿using HelloGL.Engine;
+using HelloGL.Utils;
 using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Numerics;
 
 namespace HelloGL.Scenes.Catris;
 
-internal class CatrisGame // Quick and dirty, should clean this up
+internal class PieceDef
 {
-    // TODO make piece defs dynamic?
+    public required int Id { get; init; }
 
-    public enum PieceType
+    public required bool[,] Data { get; init; }
+
+    public int Height => Data.GetLength(0);
+    public int Width => Data.GetLength(1);
+
+    public override string ToString()
     {
-        I, O, T, S, Z, J, L,
-
-        X,
+        return $"PieceDef-{Id}";
     }
 
+    public override bool Equals(object? obj)
+    {
+        return obj is PieceDef other && other.Id == this.Id;
+    }
+
+    public override int GetHashCode()
+    {
+        return Id.GetHashCode();
+    }
+}
+
+internal class PiecesLoader
+{
+    private readonly AssetManager _assetManager;
+
+    public PiecesLoader(AssetManager assetManager)
+    {
+        _assetManager = assetManager;
+    }
+
+    public IEnumerable<PieceDef> Load()
+    {
+        string[] lines = _assetManager.LoadDataFile("pieces.txt");
+        
+        var pieces = new List<PieceDef>();
+        var nextId = 1;
+
+        var buffer = new List<bool[]>();
+
+        foreach (var line in lines)
+        {
+            if (String.IsNullOrWhiteSpace(line))
+            {
+                createPiece();    
+            }
+            else
+            {
+                bool[] blocks = line.Trim()
+                    .ToCharArray()
+                    .Select(c => c == 'X')
+                    .ToArray();
+
+                buffer.Add(blocks);
+            }
+        }
+
+        createPiece();
+
+        if (pieces.Count == 0)
+            throw new Exception("No pieces defined");
+
+        return pieces;
+
+        void createPiece()
+        {
+            if (buffer.Count == 0)
+                return;
+            
+            int width = buffer[0].Length;
+            int height = buffer.Count;
+
+            if (buffer.Any(x => x.Length != width))
+                throw new Exception($"pieces.txt contains piece which is not a rectangle");
+
+            bool[,] pieceData = new bool[height, width];
+            Debug.Assert(pieceData.GetLength(0) == height);
+            Debug.Assert(pieceData.GetLength(1) == width);
+
+            for (int y=0; y<height; y++)
+            {
+                for (int x = 0; x<width; x++)
+                {
+                    pieceData[y, x] = buffer[y][x];
+                }
+            }
+
+            buffer.Clear();
+
+            Console.WriteLine($"New piece: {width}x{height}");
+
+            pieces.Add(new PieceDef()
+            {
+                Id = nextId++,
+                Data = pieceData,
+            });
+        }
+    }
+}
+
+internal class PieceGenerator
+{
+    private readonly IReadOnlyList<PieceDef> _allPieces;
+    private readonly Random _random = new();
+    private readonly Queue<PieceDef> _bag = [];
+
+    public IEnumerable<PieceDef> Next => _bag;
+
+    public PieceGenerator(IEnumerable<PieceDef> pieces)
+    {
+        _allPieces = pieces.ToArray();
+    }
+
+    public PieceDef GetNext()
+    {
+        if (_bag.TryDequeue(out PieceDef? pieceDef))
+            return pieceDef;
+
+        GenerateNewBag();
+        Debug.Assert(_bag.Count > 0);
+        return _bag.Dequeue();
+    }
+
+    private void GenerateNewBag()
+    {
+        Debug.Assert(_bag.Count == 0);
+
+        var newBag = _allPieces.ToArray();
+        _random.Shuffle(newBag);
+
+        foreach (var x in newBag)
+            _bag.Enqueue(x);
+
+        Console.WriteLine($"new bag: {String.Join(",", newBag)}");
+    }
+}
+
+internal class CatrisGame
+{
     public enum Rotation
     {
         Deg0, Deg90, Deg180, Deg270
@@ -23,78 +155,51 @@ internal class CatrisGame // Quick and dirty, should clean this up
 
     public class Piece
     {
-        public PieceType Type;
-        public Rotation Rotation;
+        public required PieceDef Def;
+        public required Rotation Rotation;
 
         // Position of top left corner
-        public int X;
-        public int Y;
+        public required int X;
+        public required int Y;
     }
 
-    private class PieceGenerator
+    public struct Cell
     {
-        private readonly IReadOnlyList<PieceType> _allTypes = Enum.GetValues<PieceType>();
-        private readonly Random _random = new();
-        private readonly Queue<PieceType> _bag = [];
-
-        public IEnumerable<PieceType> Next => _bag;
-
-        public PieceGenerator()
-        {
-        }
-
-        public PieceType GetNext()
-        {
-            if (_bag.TryDequeue(out PieceType pieceType))
-                return pieceType;
-
-            GenerateNewBag();
-            Debug.Assert(_bag.Count > 0);
-            return _bag.Dequeue();
-        }
-
-        private void GenerateNewBag()
-        {
-            Debug.Assert(_bag.Count == 0);
-
-            var newBag = _allTypes.ToArray();
-            _random.Shuffle(newBag);
-
-            foreach (var x in newBag)
-                _bag.Enqueue(x);
-
-            Console.WriteLine($"new bag: {String.Join(",", newBag)}");
-        }
+        public bool IsOccupied;
     }
 
-    private static readonly IReadOnlyDictionary<PieceType, bool[,]> _pieceShapes = new Dictionary<PieceType, bool[,]>()
+    public const int Width = 13;
+    public const int Height = 26;
+
+
+    private readonly IReadOnlyList<PieceDef> _pieceDefs;
+    private readonly PieceGenerator _pieceGenerator;
+    private readonly IReadOnlyDictionary<(PieceDef, Rotation), bool[,]> _rotatedShapes;
+
+
+    public Cell[,] Cells { get; } = new Cell[Height, Width];
+
+    public Piece CurrentPiece { get; private set; } = null!;
+
+    public IEnumerable<PieceDef> NextPieces => _pieceGenerator.Next;
+
+
+    public CatrisGame(IEnumerable<PieceDef> pieceDefs)
     {
-        { PieceType.I, new bool[,] { { true, true, true, true } } },
-        { PieceType.O, new bool[,] { { true, true }, { true, true } } },
-        { PieceType.T, new bool[,] { { false, true, false }, { true, true, true } } },
-        { PieceType.S, new bool[,] { { false, true, true }, { true, true, false } } },
-        { PieceType.Z, new bool[,] { { true, true, false }, { false, true, true } } },
-        { PieceType.J, new bool[,] { { true, false, false }, { true, true, true } } },
-        { PieceType.L, new bool[,] { { false, false, true }, { true, true, true } } },
+        _pieceDefs = pieceDefs.ToArray();
+        _pieceGenerator = new PieceGenerator(pieceDefs);
 
-        { PieceType.X, new bool[,] { { false, true, false }, { true, true, true }, { false, true, false } } },
-    }.ToFrozenDictionary();
-
-    private static readonly IReadOnlyDictionary<(PieceType, Rotation), bool[,]> _rotatedShapes;
-
-    static CatrisGame()
-    {
-        var rotatedShapes = new Dictionary<(PieceType, Rotation), bool[,]>();
-
-        foreach (var (type, shape) in _pieceShapes)
+        var rotatedShapes = new Dictionary<(PieceDef, Rotation), bool[,]>();
+        foreach (var pieceDef in pieceDefs)
         {
             foreach (var rotation in Enum.GetValues<Rotation>())
             {
-                rotatedShapes.Add((type, rotation), RotateShape(shape, rotation));
+                rotatedShapes.Add((pieceDef, rotation), RotateShape(pieceDef.Data, rotation));
             }
         }
-
         _rotatedShapes = rotatedShapes.ToFrozenDictionary();
+
+        Reset();
     }
 
     private static bool[,] RotateShape(bool[,] shape, Rotation rotation)
@@ -138,28 +243,6 @@ internal class CatrisGame // Quick and dirty, should clean this up
         }
     }
 
-    public struct Cell
-    {
-        public bool IsOccupied;
-    }
-
-    public const int Width = 13;
-    public const int Height = 26;
-
-    public Cell[,] Cells { get; } = new Cell[Height, Width];
-
-    public Piece CurrentPiece { get; private set; } = null!;
-
-    private readonly PieceGenerator _pieceGenerator = new();
-
-    public IEnumerable<PieceType> NextPieces => _pieceGenerator.Next;
-
-
-    public CatrisGame()
-    {
-        Reset();
-    }
-
     public void Reset()
     {
         Array.Clear(Cells, 0, Cells.Length);
@@ -168,15 +251,15 @@ internal class CatrisGame // Quick and dirty, should clean this up
 
     public void NextPiece()
     {
-        PieceType randomType = _pieceGenerator.GetNext();
+        PieceDef randomDef = _pieceGenerator.GetNext();
         Rotation randomRotation = Rotation.Deg0; // XXX random ?
 
-        var shape = GetShape(randomType, randomRotation);
+        var shape = GetShape(randomDef, randomRotation);
         var shapeWidth = shape.GetLength(1);
 
         CurrentPiece = new()
         {
-            Type = randomType,
+            Def = randomDef,
             Rotation = randomRotation,
             X = Width / 2 - shapeWidth / 2,
             Y = 0
@@ -185,19 +268,19 @@ internal class CatrisGame // Quick and dirty, should clean this up
 
     public bool[,] GetCurrentPieceRotatedShape()
     {
-        return GetShape(CurrentPiece.Type, CurrentPiece.Rotation);
+        return GetShape(CurrentPiece.Def, CurrentPiece.Rotation);
     }
 
-    private static bool[,] GetShape(PieceType type, Rotation rotation)
+    private bool[,] GetShape(PieceDef def, Rotation rotation)
     {
-        return _rotatedShapes[(type, rotation)];
+        return _rotatedShapes[(def, rotation)];
     }
 
     private bool SimulateMove(int dx, int dy, int rot = 0)
     {
         var newRotation = CurrentPiece.Rotation.Next(rot);
 
-        bool[,] shape = GetShape(CurrentPiece.Type, newRotation);
+        bool[,] shape = GetShape(CurrentPiece.Def, newRotation);
 
         var newPosX = CurrentPiece.X + dx;
         var newPosY = CurrentPiece.Y + dy;
@@ -367,8 +450,8 @@ internal class CatrisGame // Quick and dirty, should clean this up
         var oldRotation = CurrentPiece.Rotation;
         var newRotation = CurrentPiece.Rotation.Next(cw ? 1 : -1);
 
-        var oldShape = GetShape(CurrentPiece.Type, oldRotation);
-        var newShape = GetShape(CurrentPiece.Type, newRotation);
+        var oldShape = GetShape(CurrentPiece.Def, oldRotation);
+        var newShape = GetShape(CurrentPiece.Def, newRotation);
 
         int widthChange = newShape.GetLength(1) - oldShape.GetLength(1);
         int heightChange = newShape.GetLength(0) - oldShape.GetLength(0);
@@ -408,16 +491,9 @@ internal class CatrisGame // Quick and dirty, should clean this up
     {
         int dy = 0;
 
-        while (true)
+        while (SimulateMove(0, dy + 1, 0))
         {
-            if (SimulateMove(0, dy + 1, 0))
-            {
-                dy++;
-            }
-            else
-            {
-                break;
-            }
+            dy++;
         }
 
         return dy;
