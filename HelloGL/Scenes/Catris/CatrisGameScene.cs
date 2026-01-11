@@ -64,7 +64,7 @@ internal class CatrisGameScene : Scene
 
     public override void Load()
     {
-        _renderer = new DynamicGeometryRenderer2D(AssetManager);
+        _renderer = new DynamicGeometryRenderer2D(AssetManager, [ "block" ]);
 
         _pieces = new PiecesLoader(AssetManager).Load().ToArray();
 

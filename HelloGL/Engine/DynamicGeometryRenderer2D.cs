@@ -1,9 +1,10 @@
-﻿using System.Diagnostics;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.InteropServices;
+using HelloGL.Engine.Assets;
 using HelloGL.Utils;
 
 namespace HelloGL.Engine;
+
 
 public unsafe class DynamicGeometryRenderer2D : IDisposable
 {
@@ -42,6 +43,14 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
 
     private readonly Font _font1;
 
+    private readonly Material _material1;
+
+    private readonly Dictionary<string, Material> _materials = [];
+    
+    // TODO: vertex buffer per material
+    // - what format?
+    // - what about index buffers?
+
     private readonly BufferObject _vertexBufferObject;
     private readonly VertexArrayObject<VertexPC> _vertexArrayObject;
     private readonly List<VertexPC> _vertexBuffer = new(_initialVertexBufferSize);
@@ -55,6 +64,11 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
     private readonly List<VertexPCT> _fontVertexBuffer = new(_initialVertexBufferSize);
 
     public DynamicGeometryRenderer2D(AssetManager assetManager)
+        :this(assetManager, [])
+    {
+    }
+    
+    public DynamicGeometryRenderer2D(AssetManager assetManager, IReadOnlyList<string> materials)
     {
         _shader = assetManager.LoadShader("triangle");
         _textureShader = assetManager.LoadShader("texture");
@@ -64,6 +78,14 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
         _texture2 = assetManager.LoadTexture("2");
 
         _font1 = assetManager.LoadFont("font1");
+
+        foreach (var materialId in materials)
+        {
+            var material = assetManager.LoadMaterial(materialId);
+            _materials.Add(materialId, material);
+        }
+        
+        _material1 = assetManager.LoadMaterial("block");
 
         _vertexBufferObject = new BufferObject(assetManager.GL);
         _vertexBufferObject.SetSizeAndUsage(sizeof(VertexPC) * _initialVertexBufferSize, GL.BufferUsage.STREAM_DRAW);
@@ -77,7 +99,7 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
         _fontVertexBufferObject.SetSizeAndUsage(sizeof(VertexPCT) * _initialVertexBufferSize, GL.BufferUsage.STREAM_DRAW);
         _fontVertexArrayObject = new VertexArrayObject<VertexPCT>(assetManager.GL, _fontVertexBufferObject);
     }
-
+    
     public void AddTriangle(Vector2 p1, Vector3 c1, Vector2 p2, Vector3 c2, Vector2 p3, Vector3 c3)
     {
         _vertexBuffer.Add(new VertexPC() { Position = p1, Color = c1 });
@@ -137,9 +159,7 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
         _textureVertexBuffer.Add(new VertexPCT { Position = tr, Color = color, UV = new(uvMax.X, uvMin.Y) });
         _textureVertexBuffer.Add(new VertexPCT { Position = tl, Color = color, UV = new(uvMin.X, uvMin.Y) });
     }
-
-
-
+    
     public void AddText(Vector2 position, float scale, string text)
     {
         var font = _font1;
@@ -197,14 +217,19 @@ public unsafe class DynamicGeometryRenderer2D : IDisposable
 
             _vertexBufferObject.SetData(span, GL.BufferUsage.STREAM_DRAW);
 
-            _shader.Use();
-            _shader.SetUniform("uMVP", mvp);
+            //_shader.Use();
+            //_shader.SetUniform("uMVP", mvp);
 
+            _material1.Bind();
+            _material1.SetUniform("uMVP", mvp);
+            
             _vertexArrayObject.Bind();
             _vertexArrayObject.Draw(GL.PrimitiveType.TRIANGLES, 0, (uint)_vertexBuffer.Count);
             _vertexArrayObject.Unbind();
 
-            _shader.Unuse();
+            _material1.Unbind();
+            
+            //_shader.Unuse();
 
             _vertexBuffer.Clear();
         }

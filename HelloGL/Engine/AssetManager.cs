@@ -1,6 +1,16 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using HelloGL.Engine.Assets;
 
 namespace HelloGL.Engine;
+
+[JsonSerializable(typeof(MaterialDef))]
+public partial class AssetDefJsonContext : JsonSerializerContext
+{
+}
 
 public interface IAssetReader
 {
@@ -8,6 +18,7 @@ public interface IAssetReader
     string ReadFileAsString(string assetPath);
     string[] ReadFileAsLines(string assetPath);
     byte[] ReadFileAsBytes(string assetPath);
+    T ReadFileAsJson<T>(string assetPath, JsonTypeInfo<T> typeInfo) where T : class;
 }
 
 public interface IAssetManager
@@ -15,6 +26,7 @@ public interface IAssetManager
     Shader LoadShader(string name);
     Texture LoadTexture(string name);
     Font LoadFont(string name);
+    Material LoadMaterial(string name);
 
     string[] LoadDataFile(string name);
 }
@@ -31,10 +43,12 @@ public class AssetManager : IDisposable, IAssetManager
     private readonly ShaderLoader _shaderLoader;
     private readonly TextureLoader _textureLoader;
     private readonly FontLoader _fontLoader;
+    private readonly MaterialLoader _materialLoader;
 
     private readonly Dictionary<string, Shader> _shaders = [];
     private readonly Dictionary<string, Texture> _textures = [];
     private readonly Dictionary<string, Font> _fonts = [];
+    private readonly Dictionary<string, Material> _materials = [];
 
     public static DirectoryInfo FindBaseDirectory()
     {
@@ -64,6 +78,7 @@ public class AssetManager : IDisposable, IAssetManager
         _shaderLoader = new ShaderLoader(this, _reader, gl);
         _textureLoader = new TextureLoader(this, _reader, gl);
         _fontLoader = new FontLoader(this, _reader, gl);
+        _materialLoader = new MaterialLoader(this, _reader, gl);
     }
 
     public Shader LoadShader(string name)
@@ -115,6 +130,21 @@ public class AssetManager : IDisposable, IAssetManager
         _fonts.Add(name, font);
 
         return font;
+    }
+
+    public Material LoadMaterial(string name)
+    {
+        if (_materials.TryGetValue(name, out var cachedMaterial))
+            return cachedMaterial;
+
+        var loadedMaterial = _materialLoader.Load(name);
+
+        var material = loadedMaterial.Asset;
+        var sourceFiles = loadedMaterial.SourceFiles;
+        
+        RegisterAssetDependencies(material, sourceFiles);
+        
+        return material;
     }
 
     public string[] LoadDataFile(string name)
@@ -170,6 +200,12 @@ public class AssetManager : IDisposable, IAssetManager
 
     public virtual void Dispose()
     {
+        foreach (var material in _materials.Values)
+        {
+            //material.Dispose();
+        }
+        _materials.Clear();
+        
         foreach (var shader in _shaders.Values)
         {
             shader.Dispose();
@@ -199,6 +235,7 @@ public class AssetManager : IDisposable, IAssetManager
         AssetType.Shader => "Shaders",
         AssetType.Texture => "Textures",
         AssetType.Font => "Fonts",
+        AssetType.Material => "Materials",
         AssetType.Model => "Models",
         AssetType.Data => "Data",
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
@@ -206,7 +243,7 @@ public class AssetManager : IDisposable, IAssetManager
 
     private class FileSystemAssetReader : IAssetReader
     {
-        protected readonly DirectoryInfo _baseDir;
+        private readonly DirectoryInfo _baseDir;
 
         public FileSystemAssetReader(DirectoryInfo baseDir)
         {
@@ -247,6 +284,17 @@ public class AssetManager : IDisposable, IAssetManager
 
             return File.ReadAllBytes(fileInfo.FullName);
         }
+
+        public T ReadFileAsJson<T>(string assetPath, JsonTypeInfo<T> typeInfo) where T : class
+        {
+            string json = ReadFileAsString(assetPath);
+            
+            T? obj = JsonSerializer.Deserialize<T>(json, typeInfo);
+            if (obj is null)
+                throw new Exception($"Failed to deserialize asset: {assetPath} as {typeof(T).FullName}");
+            
+            return obj;
+        }
     }
 
     private class ArchiveAssetReader : IAssetReader
@@ -272,6 +320,11 @@ public class AssetManager : IDisposable, IAssetManager
         }
 
         public byte[] ReadFileAsBytes(string assetPath)
+        {
+            throw new NotImplementedException();
+        }
+
+        public T ReadFileAsJson<T>(string assetPath, JsonTypeInfo<T> typeInfo) where T : class
         {
             throw new NotImplementedException();
         }
